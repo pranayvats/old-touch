@@ -20,6 +20,17 @@ export function loadLeaflet(): Promise<any> {
   if (loadPromise) return loadPromise;
 
   loadPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: (value: any) => void, value: any) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+    };
+
+    const timer = window.setTimeout(() => {
+      finish(reject, new Error("The map library is taking too long to load. Check your internet connection and press Update."));
+    }, 10000);
+
     if (!document.getElementById(LEAFLET_STYLE_ID)) {
       const link = document.createElement("link");
       link.id = LEAFLET_STYLE_ID;
@@ -28,10 +39,20 @@ export function loadLeaflet(): Promise<any> {
       document.head.appendChild(link);
     }
 
+    const handleLoad = () => {
+      window.clearTimeout(timer);
+      if (window.L) finish(resolve, window.L);
+      else finish(reject, new Error("The map library loaded but was not initialized."));
+    };
+    const handleError = () => {
+      window.clearTimeout(timer);
+      finish(reject, new Error("The map library could not load. Check your internet connection and press Update."));
+    };
+
     const existing = document.getElementById(LEAFLET_SCRIPT_ID) as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener("load", () => resolve(window.L));
-      existing.addEventListener("error", () => reject(new Error("The map library could not load.")));
+      existing.addEventListener("load", handleLoad, { once: true });
+      existing.addEventListener("error", handleError, { once: true });
       return;
     }
 
@@ -39,8 +60,8 @@ export function loadLeaflet(): Promise<any> {
     script.id = LEAFLET_SCRIPT_ID;
     script.async = true;
     script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error("The map library could not load."));
+    script.onload = handleLoad;
+    script.onerror = handleError;
     document.head.appendChild(script);
   });
 
