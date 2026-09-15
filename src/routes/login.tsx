@@ -26,29 +26,13 @@ function ProviderLogo({ provider }: { provider: Provider }) {
       </svg>
     );
   }
-
   if (provider === "facebook") {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6">
-        <circle cx="12" cy="12" r="10" fill="#1877F2" />
-        <path fill="#fff" d="M13.25 19v-6h2.02l.31-2.34h-2.33V9.17c0-.68.19-1.14 1.17-1.14h1.25V5.94c-.22-.03-.97-.09-1.84-.09-1.82 0-3.07 1.11-3.07 3.15v1.66H8.7V13h2.06v6h2.49Z" />
-      </svg>
-    );
+    return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6"><circle cx="12" cy="12" r="10" fill="#1877F2" /><path fill="#fff" d="M13.25 19v-6h2.02l.31-2.34h-2.33V9.17c0-.68.19-1.14 1.17-1.14h1.25V5.94c-.22-.03-.97-.09-1.84-.09-1.82 0-3.07 1.11-3.07 3.15v1.66H8.7V13h2.06v6h2.49Z" /></svg>;
   }
-
   if (provider === "apple") {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current">
-        <path d="M17.05 12.54c0-2.14 1.75-3.17 1.83-3.22a3.93 3.93 0 0 0-3.09-1.67c-1.3-.14-2.54.77-3.2.77-.67 0-1.7-.75-2.79-.73-1.43.02-2.75.83-3.48 2.1-1.5 2.6-.38 6.42 1.08 8.52.73 1.03 1.57 2.17 2.69 2.13 1.08-.04 1.49-.69 2.8-.69 1.31 0 1.68.69 2.82.67 1.17-.02 1.91-1.04 2.63-2.07.83-1.2 1.17-2.36 1.19-2.42-.03-.01-2.28-.87-2.48-3.39Zm-2.1-6.26c.58-.7.97-1.68.86-2.65-.84.03-1.86.56-2.46 1.26-.54.62-1 1.62-.87 2.57.94.07 1.9-.48 2.47-1.18Z" />
-      </svg>
-    );
+    return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current"><path d="M17.05 12.54c0-2.14 1.75-3.17 1.83-3.22a3.93 3.93 0 0 0-3.09-1.67c-1.3-.14-2.54.77-3.2.77-.67 0-1.7-.75-2.79-.73-1.43.02-2.75.83-3.48 2.1-1.5 2.6-.38 6.42 1.08 8.52.73 1.03 1.57 2.17 2.69 2.13 1.08-.04 1.49-.69 2.8-.69 1.31 0 1.68.69 2.82.67 1.17-.02 1.91-1.04 2.63-2.07.83-1.2 1.17-2.36 1.19-2.42-.03-.01-2.28-.87-2.48-3.39Zm-2.1-6.26c.58-.7.97-1.68.86-2.65-.84.03-1.86.56-2.46 1.26-.54.62-1 1.62-.87 2.57.94.07 1.9-.48 2.47-1.18Z" /></svg>;
   }
-
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current">
-      <path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.84L0 2h7.6l5.24 6.92L18.9 2Zm-1.3 17.69h2.04L6.48 4.19H4.29L17.6 19.69Z" />
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current"><path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.84L0 2h7.6l5.24 6.92L18.9 2Zm-1.3 17.69h2.04L6.48 4.19H4.29L17.6 19.69Z" /></svg>;
 }
 
 function LoginScreen() {
@@ -75,7 +59,7 @@ function LoginScreen() {
     setSocialLoading(provider); setError(""); setNotice("");
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/login` },
     });
     if (oauthError) {
       setError(oauthError.message);
@@ -86,10 +70,7 @@ function LoginScreen() {
   const handleLogin = async () => {
     const value = identifier.trim().toLowerCase();
     if (!value || loading) return;
-    if (!value.includes("@")) {
-      setError("Please use one of the sign-in options above, or enter an email address.");
-      return;
-    }
+    if (!value.includes("@")) { setError("Please use one of the sign-in options above, or enter an email address."); return; }
     if (!password) { setError("Enter your password."); return; }
     setLoading(true); setError(""); setNotice("");
     const { error: authError } = await supabase.auth.signInWithPassword({ email: value, password });
@@ -100,14 +81,9 @@ function LoginScreen() {
 
   const handleForgotPassword = async () => {
     const value = identifier.trim().toLowerCase();
-    if (!value.includes("@")) {
-      setError("Enter the email address linked to your Old Touch account to reset its password.");
-      return;
-    }
+    if (!value.includes("@")) { setError("Enter the email address linked to your Old Touch account to reset its password."); return; }
     setResetting(true); setError(""); setNotice("");
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(value, {
-      redirectTo: "https://old-touch.vercel.app/reset-password",
-    });
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: "https://old-touch.vercel.app/reset-password" });
     if (resetError) setError(resetError.message);
     else setNotice("Password reset email sent. Open it to choose a new password.");
     setResetting(false);
@@ -116,29 +92,11 @@ function LoginScreen() {
   return (
     <AppShell>
       <main className="flex flex-1 flex-col p-6 pt-10">
-        <div className="mb-8 text-center">
-          <h1 className="text-5xl font-black tracking-tight">Welcome to Old Touch</h1>
-          <p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p>
-        </div>
-
+        <div className="mb-8 text-center"><h1 className="text-5xl font-black tracking-tight">Welcome to Old Touch</h1><p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p></div>
         <div className="mb-2 flex items-center justify-center gap-4" aria-label="Sign in with a social account">
-          {providers.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-label={`Continue with ${item.label}`}
-              title={`Continue with ${item.label}`}
-              onClick={() => void handleSocialLogin(item.id)}
-              disabled={Boolean(socialLoading)}
-              className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
-            >
-              {socialLoading === item.id ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Loading" /> : <ProviderLogo provider={item.id} />}
-            </button>
-          ))}
+          {providers.map((item) => <button key={item.id} type="button" aria-label={`Continue with ${item.label}`} title={`Continue with ${item.label}`} onClick={() => void handleSocialLogin(item.id)} disabled={Boolean(socialLoading)} className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55">{socialLoading === item.id ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Loading" /> : <ProviderLogo provider={item.id} />}</button>)}
         </div>
-
         <div className="my-7 flex items-center gap-3 text-muted-foreground"><div className="h-px flex-1 bg-border" /><span className="text-base font-bold">OR EMAIL</span><div className="h-px flex-1 bg-border" /></div>
-
         <div className="flex flex-col gap-4">
           <FormField label="Email address" placeholder="you@example.com" type="email" value={identifier} onChange={setIdentifier} />
           <FormField label="Password" type="password" placeholder="Enter your password" value={password} onChange={setPassword} />
@@ -147,7 +105,6 @@ function LoginScreen() {
           <button type="button" onClick={() => void handleLogin()} disabled={loading || !identifier.trim() || !password} className="w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Logging in…" : "Log In with Email"}</button>
           <button type="button" onClick={() => void handleForgotPassword()} disabled={resetting} className="py-2 text-lg font-bold text-primary disabled:opacity-50">{resetting ? "Sending…" : "Forgot password?"}</button>
         </div>
-
         <div className="mt-auto pt-8 text-center"><p className="text-lg font-semibold text-muted-foreground">New to Old Touch?</p><Link to="/signup" className="mt-2 block rounded-3xl border-2 border-primary px-6 py-4 text-xl font-extrabold text-primary">Create an Account</Link></div>
       </main>
     </AppShell>
