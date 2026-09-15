@@ -1,15 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Hospital,
-  Pill,
-  UtensilsCrossed,
-  Landmark,
-  CalendarDays,
-} from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
-import { BigButton } from "@/components/BigButton";
 import { Card } from "@/components/Card";
+import { NearbyPlacesMap } from "@/components/NearbyPlacesMap";
 
 export const Route = createFileRoute("/near-me")({
   head: () => ({
@@ -35,17 +29,18 @@ function NearMeScreen() {
   return (
     <AppShell>
       <PageHeader title="Near Me" subtitle="Useful places around you" />
-      <main className="flex flex-col gap-4 p-5">
-        <BigButton icon={Hospital} label="Hospitals" />
-        <BigButton icon={Pill} label="Pharmacies" />
-        <BigButton icon={UtensilsCrossed} label="Restaurants" />
-        <BigButton icon={Landmark} label="Community places" />
-        <BigButton icon={CalendarDays} label="Events" />
+      <main className="flex flex-col gap-5 p-5">
+        <NearbyPlacesMap />
         <Card>
-          <p className="text-base font-medium text-muted-foreground">
-            Live results from the map will appear here soon, based on your
-            location.
-          </p>
+          <div className="flex items-start gap-3">
+            <CalendarDays className="mt-1 h-7 w-7 shrink-0" />
+            <div>
+              <p className="text-lg font-black">Community events</p>
+              <p className="mt-1 text-base font-medium text-muted-foreground">
+                Events hosted on Old Touch will appear here next, alongside nearby places.
+              </p>
+            </div>
+          </div>
         </Card>
       </main>
     </AppShell>
