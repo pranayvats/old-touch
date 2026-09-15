@@ -14,7 +14,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PhoneOtpRouteImport } from './routes/phone-otp'
 
 const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
 const BookACabRoute = BookACabRouteImport.update({ id: '/book-a-cab', path: '/book-a-cab', getParentRoute: () => rootRouteImport } as any)
@@ -27,7 +26,6 @@ const LoginRoute = LoginRouteImport.update({ id: '/login', path: '/login', getPa
 const SignupRoute = SignupRouteImport.update({ id: '/signup', path: '/signup', getParentRoute: () => rootRouteImport } as any)
 const SetupRoute = SetupRouteImport.update({ id: '/setup', path: '/setup', getParentRoute: () => rootRouteImport } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({ id: '/reset-password', path: '/reset-password', getParentRoute: () => rootRouteImport } as any)
-const PhoneOtpRoute = PhoneOtpRouteImport.update({ id: '/phone-otp', path: '/phone-otp', getParentRoute: () => rootRouteImport } as any)
 const EmergencyContactRoute = EmergencyContactRouteImport.update({ id: '/contact', path: '/contact', getParentRoute: () => EmergencyRoute } as any)
 const HostEventDetailsRoute = HostEventDetailsRouteImport.update({ id: '/details', path: '/details', getParentRoute: () => HostEventRoute } as any)
 
@@ -43,7 +41,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/setup': typeof SetupRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/phone-otp': typeof PhoneOtpRoute
   '/emergency/contact': typeof EmergencyContactRoute
   '/host-event/details': typeof HostEventDetailsRoute
 }
@@ -58,13 +55,12 @@ declare module '@tanstack/react-router' {
     '/community': { id: '/community'; path: '/community'; fullPath: '/community'; preLoaderRoute: typeof CommunityRouteImport; parentRoute: typeof rootRouteImport }
     '/emergency': { id: '/emergency'; path: '/emergency'; fullPath: '/emergency'; preLoaderRoute: typeof EmergencyRouteImport; parentRoute: typeof rootRouteImport }
     '/healthy-food': { id: '/healthy-food'; path: '/healthy-food'; fullPath: '/healthy-food'; preLoaderRoute: typeof HealthyFoodRouteImport; parentRoute: typeof rootRouteImport }
-    '/host-event': { id: '/host-event'; path: '/host-event'; fullPath: '/host-event'; preLoaderRoute: typeof HostEventRouteImport; parentRoute: typeof rootRouteImport }
+    '/host-event': { id: '/host-event'; path: '/host-event'; fullPath: '/host-event'; preLoaderRoute: typeof HealthyFoodRouteImport; parentRoute: typeof rootRouteImport }
     '/near-me': { id: '/near-me'; path: '/near-me'; fullPath: '/near-me'; preLoaderRoute: typeof NearMeRouteImport; parentRoute: typeof rootRouteImport }
     '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof rootRouteImport }
     '/signup': { id: '/signup'; path: '/signup'; fullPath: '/signup'; preLoaderRoute: typeof SignupRouteImport; parentRoute: typeof rootRouteImport }
     '/setup': { id: '/setup'; path: '/setup'; fullPath: '/setup'; preLoaderRoute: typeof SetupRouteImport; parentRoute: typeof rootRouteImport }
     '/reset-password': { id: '/reset-password'; path: '/reset-password'; fullPath: '/reset-password'; preLoaderRoute: typeof ResetPasswordRouteImport; parentRoute: typeof rootRouteImport }
-    '/phone-otp': { id: '/phone-otp'; path: '/phone-otp'; fullPath: '/phone-otp'; preLoaderRoute: typeof PhoneOtpRouteImport; parentRoute: typeof rootRouteImport }
     '/emergency/contact': { id: '/emergency/contact'; path: '/contact'; fullPath: '/emergency/contact'; preLoaderRoute: typeof EmergencyContactRouteImport; parentRoute: typeof EmergencyRoute }
     '/host-event/details': { id: '/host-event/details'; path: '/details'; fullPath: '/host-event/details'; preLoaderRoute: typeof HostEventDetailsRouteImport; parentRoute: typeof HostEventRoute }
   }
@@ -73,7 +69,7 @@ interface EmergencyRouteChildren { EmergencyContactRoute: typeof EmergencyContac
 const EmergencyRouteWithChildren = EmergencyRoute._addFileChildren({ EmergencyContactRoute })
 interface HostEventRouteChildren { HostEventDetailsRoute: typeof HostEventDetailsRoute }
 const HostEventRouteWithChildren = HostEventRoute._addFileChildren({ HostEventDetailsRoute })
-const rootRouteChildren = { IndexRoute, BookACabRoute, CommunityRoute, EmergencyRoute: EmergencyRouteWithChildren, HealthyFoodRoute, HostEventRoute: HostEventRouteWithChildren, NearMeRoute, LoginRoute, SignupRoute, SetupRoute, ResetPasswordRoute, PhoneOtpRoute }
+const rootRouteChildren = { IndexRoute, BookACabRoute, CommunityRoute, EmergencyRoute: EmergencyRouteWithChildren, HealthyFoodRoute, HostEventRoute: HostEventRouteWithChildren, NearMeRoute, LoginRoute, SignupRoute, SetupRoute, ResetPasswordRoute }
 export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
