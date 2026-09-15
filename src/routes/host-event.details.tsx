@@ -13,7 +13,7 @@ export const Route = createFileRoute("/host-event/details")({
   component: EventDetailsScreen,
 });
 
-type Person = { id: string; full_name: string; phone: string | null };
+type Person = { id: string; full_name: string; city: string | null };
 
 function EventDetailsScreen() {
   const navigate = useNavigate();
@@ -33,13 +33,22 @@ function EventDetailsScreen() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void supabase.from("profiles").select("id,full_name,phone").order("full_name").then(({ data, error: peopleError }) => {
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
+      const city = profile?.city?.trim();
+      let query = supabase.from("profiles").select("id,full_name,city").order("full_name");
+      if (city) query = query.eq("city", city);
+
+      const { data, error: peopleError } = await query;
       if (peopleError) setError(peopleError.message);
       setPeople(data ?? []);
-    });
+    })();
   }, []);
 
-  const filteredPeople = people.filter((p) => `${p.full_name} ${p.phone ?? ""}`.toLowerCase().includes(inviteText.toLowerCase()));
+  const filteredPeople = people.filter((p) => p.full_name.toLowerCase().includes(inviteText.trim().toLowerCase()));
   const togglePerson = (id: string) => setSelected((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
 
   const handleMapLocation = (selectedLocation: MapLocation) => {
@@ -53,16 +62,20 @@ function EventDetailsScreen() {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) { setError("Please log in again."); setSaving(false); return; }
 
-    const startsAt = new Date(`${date}T${startTime}`).toISOString();
-    const endsAt = endTime ? new Date(`${date}T${endTime}`).toISOString() : null;
-    if (endsAt && new Date(endsAt) <= new Date(startsAt)) { setError("End time must be after the start time."); setSaving(false); return; }
+    const startsAtDate = new Date(`${date}T${startTime}`);
+    const endsAtDate = endTime ? new Date(`${date}T${endTime}`) : null;
+    if (Number.isNaN(startsAtDate.getTime()) || (endsAtDate && Number.isNaN(endsAtDate.getTime()))) {
+      setError("Please enter a valid date and time."); setSaving(false); return;
+    }
+    if (endsAtDate && endsAtDate <= startsAtDate) { setError("End time must be after the start time."); setSaving(false); return; }
+    if (startsAtDate <= new Date()) { setError("Please choose a future date and time."); setSaving(false); return; }
 
     const { data: event, error: eventError } = await supabase.from("events").insert({
       host_id: user.id,
       name: eventName.trim(),
       description: description.trim() || null,
-      starts_at: startsAt,
-      ends_at: endsAt,
+      starts_at: startsAtDate.toISOString(),
+      ends_at: endsAtDate?.toISOString() ?? null,
       location_name: location.trim(),
       location_lat: mapLocation?.lat ?? null,
       location_lng: mapLocation?.lng ?? null,
@@ -73,7 +86,8 @@ function EventDetailsScreen() {
     if (invitees.length) {
       const { error: inviteError } = await supabase.from("event_invites").insert(invitees.map((invitee_id) => ({ event_id: event.id, invitee_id, status: "pending" })));
       if (inviteError) {
-        setError(`Event created, but invitations failed: ${inviteError.message}`);
+        // The event itself is valid and remains available; give the host a clear recovery path.
+        setError(`Event created, but invitations could not be sent. You can create the event again without invitations or retry after checking your connection.`);
         setSaving(false);
         return;
       }
@@ -97,13 +111,14 @@ function EventDetailsScreen() {
         <FormField label="End time" type="time" value={endTime} onChange={setEndTime} />
         <FormField label="Location" placeholder="Community hall, Sector 12" value={location} onChange={(value) => { setLocation(value); setMapLocation(null); }} />
         <OpenStreetMap value={mapLocation} onLocationChange={handleMapLocation} />
-        <FormField label="Find people to invite" placeholder="Search by name or phone" value={inviteText} onChange={setInviteText} />
+        <FormField label="Find people to invite" placeholder="Search by name" value={inviteText} onChange={setInviteText} />
         <div className="flex flex-col gap-2">
           {filteredPeople.slice(0, 8).map((person) => (
             <button key={person.id} type="button" onClick={() => togglePerson(person.id)} className={`rounded-2xl border-2 p-4 text-left text-lg font-bold ${selected.includes(person.id) ? "border-primary bg-primary/10" : "border-border"}`}>
-              {selected.includes(person.id) ? "✓ " : "○ "}{person.full_name}{person.phone ? ` · ${person.phone}` : ""}
+              {selected.includes(person.id) ? "✓ " : "○ "}{person.full_name}
             </button>
           ))}
+          {inviteText.trim() && filteredPeople.length === 0 && <p className="rounded-2xl bg-muted p-4 text-base font-semibold text-muted-foreground">No people found in your community.</p>}
         </div>
         {selected.length > 0 && <Card><p className="text-lg font-bold">{selected.length} person{selected.length === 1 ? "" : "s"} selected</p></Card>}
         {error && <p className="rounded-2xl bg-destructive/10 p-4 font-bold text-destructive">{error}</p>}
