@@ -26,7 +26,6 @@ function CommunityScreen() {
   const [error, setError] = useState("");
 
   const loadPosts = async () => {
-    setLoading(true);
     const { data, error } = await supabase
       .from("community_posts")
       .select("id,user_id,content,created_at,profiles!community_posts_user_id_fkey(full_name,city)")
@@ -34,34 +33,65 @@ function CommunityScreen() {
 
     if (error) {
       setError(error.message);
-      setLoading(false);
       return;
     }
 
     setPosts((data ?? []).map((row: any) => ({ ...row, author: row.profiles })));
-    setLoading(false);
   };
 
   useEffect(() => {
-    void loadPosts();
+    void (async () => {
+      setLoading(true);
+      await loadPosts();
+      setLoading(false);
+    })();
+
     const channel = supabase
       .channel("community-posts-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts" }, () => void loadPosts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts" }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const deletedId = (payload.old as { id?: string })?.id;
+          if (deletedId) setPosts((current) => current.filter((post) => post.id !== deletedId));
+        } else {
+          void loadPosts();
+        }
+      })
       .subscribe();
+
     return () => { void supabase.removeChannel(channel); };
   }, []);
 
   const createPost = async () => {
     const text = content.trim();
-    if (!text) return;
+    if (!text || posting) return;
     setPosting(true);
     setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Please log in again to post."); setPosting(false); return; }
 
-    const { error } = await supabase.from("community_posts").insert({ user_id: user.id, content: text });
-    if (error) setError(error.message);
-    else setContent("");
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setError("Please log in again to post.");
+      setPosting(false);
+      return;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("community_posts")
+      .insert({ user_id: user.id, content: text })
+      .select("id,user_id,content,created_at,profiles!community_posts_user_id_fkey(full_name,city)")
+      .single();
+
+    if (insertError) {
+      setError(`Could not post: ${insertError.message}`);
+      setPosting(false);
+      return;
+    }
+
+    const newPost: Post = {
+      ...(inserted as any),
+      author: (inserted as any).profiles,
+    };
+    setPosts((current) => [newPost, ...current.filter((post) => post.id !== newPost.id)]);
+    setContent("");
     setPosting(false);
   };
 
