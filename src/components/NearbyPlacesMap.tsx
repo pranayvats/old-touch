@@ -73,7 +73,7 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
 
 async function reverseGeocode(center: Coordinates): Promise<string> {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(center.lat)}&lon=${encodeURIComponent(center.lng)}&zoom=18&addressdetails=1`;
-  const response = await fetchWithTimeout(url, 8000);
+  const response = await fetchWithTimeout(url, 5000);
   if (!response.ok) throw new Error("Could not find the address for your location.");
   const data = await response.json();
   return data.display_name || "Your current location";
@@ -90,11 +90,13 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
     };
     const timer = window.setTimeout(() => {
       finish(reject, new Error("Location lookup is taking too long. Check your browser's location permission and press Update."));
-    }, 10000);
+    }, 6000);
     navigator.geolocation.getCurrentPosition(
       (position) => { window.clearTimeout(timer); finish(resolve, position); },
       (error) => { window.clearTimeout(timer); finish(reject, error); },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 9000 },
+      // A desktop browser can take a long time when high-accuracy GPS is requested.
+      // Network/Wi-Fi location is fast enough for nearby-place searches.
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 5000 },
     );
   });
 }
@@ -138,7 +140,8 @@ export function NearbyPlacesMap() {
       centerRef.current = center;
       setLocationLabel(`Your location (±${Math.round(accuracy)} m)`);
       if (mapRef.current) mapRef.current.setView([center.lat, center.lng], 15);
-      void reverseGeocode(center).then((address) => setLocationLabel(address)).catch(() => {});
+      // Address lookup is deliberately non-blocking so nearby places appear immediately.
+      void reverseGeocode(center).then((address) => setLocationLabel(address)).catch(() => setLocationLabel("Your current location"));
       await searchNearby(nextCategory, center);
     } catch (error) {
       setLoading(false);
