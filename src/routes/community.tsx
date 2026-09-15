@@ -84,7 +84,9 @@ function CommunityScreen() {
 
   const acceptInvite = async (invite: Invite) => {
     setInviteBusyId(invite.id); setError("");
-    const { error: updateError } = await supabase.from("event_invites").update({ status: "accepted", rejection_reason: null }).eq("id", invite.id).eq("status", "pending");
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { setError("Please log in again to respond to this invitation."); setInviteBusyId(null); return; }
+    const { error: updateError } = await supabase.from("event_invites").update({ status: "accepted", rejection_reason: null }).eq("id", invite.id).eq("invitee_id", user.id).eq("status", "pending");
     if (updateError) setError(`Could not accept invitation: ${updateError.message}`);
     else setInvites((current) => current.map((x) => x.id === invite.id ? { ...x, status: "accepted", rejection_reason: null } : x));
     setInviteBusyId(null);
@@ -95,7 +97,9 @@ function CommunityScreen() {
     const reason = rejectReason === "Other" ? otherReason.trim() : rejectReason;
     if (!reason) return;
     setInviteBusyId(rejecting.id); setError("");
-    const { error: updateError } = await supabase.from("event_invites").update({ status: "rejected", rejection_reason: reason }).eq("id", rejecting.id).eq("status", "pending");
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { setError("Please log in again to respond to this invitation."); setInviteBusyId(null); return; }
+    const { error: updateError } = await supabase.from("event_invites").update({ status: "rejected", rejection_reason: reason }).eq("id", rejecting.id).eq("invitee_id", user.id).eq("status", "pending");
     if (updateError) setError(`Could not reject invitation: ${updateError.message}`);
     else setInvites((current) => current.map((x) => x.id === rejecting.id ? { ...x, status: "rejected", rejection_reason: reason } : x));
     setInviteBusyId(null); setRejecting(null); setRejectReason(""); setOtherReason("");
