@@ -19,7 +19,17 @@ function buildOverpassQuery(tag: string, { lat, lng }: Coordinates) {
     restaurant: ["node[amenity=restaurant]", "way[amenity=restaurant]", "relation[amenity=restaurant]", "node[amenity=fast_food]", "way[amenity=fast_food]"],
     community: ["node[amenity=community_centre]", "way[amenity=community_centre]", "relation[amenity=community_centre]", "node[leisure=community_centre]", "way[leisure=community_centre]", "node[amenity=social_centre]", "way[amenity=social_centre]"],
   }[tag] ?? [];
-  return `[out:json][timeout:20];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
+  return `[out:json][timeout:15];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
+}
+
+async function fetchWithTimeout(url: string, ms = 8000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<PlaceResult[]> {
@@ -32,7 +42,7 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
   let lastError: unknown;
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`);
+      const response = await fetchWithTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 8000);
       if (!response.ok) throw new Error("Nearby search server is busy.");
       const data = await response.json();
       const seen = new Set<string>();
@@ -54,7 +64,7 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
       }).slice(0, 30);
     } catch (error) { lastError = error; }
   }
-  throw lastError instanceof Error ? lastError : new Error("Could not load nearby places.");
+  throw lastError instanceof Error ? lastError : new Error("Could not load nearby places. Check your internet connection and press Update.");
 }
 
 function getCurrentPosition(): Promise<GeolocationPosition> {
