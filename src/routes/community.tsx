@@ -22,6 +22,7 @@ function CommunityScreen() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const loadPosts = async () => {
@@ -65,8 +66,41 @@ function CommunityScreen() {
   };
 
   const deletePost = async (id: string) => {
-    const { error } = await supabase.from("community_posts").delete().eq("id", id);
-    if (error) setError(error.message);
+    setError("");
+    if (deletingId) return;
+
+    const confirmed = window.confirm("Delete this post? This cannot be undone.");
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setError("Please log in again to delete this post.");
+      setDeletingId(null);
+      return;
+    }
+
+    const { data: deletedRows, error: deleteError } = await supabase
+      .from("community_posts")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("id");
+
+    if (deleteError) {
+      setError(`Could not delete post: ${deleteError.message}`);
+      setDeletingId(null);
+      return;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      setError("Could not delete this post. You can only delete your own posts.");
+      setDeletingId(null);
+      return;
+    }
+
+    setPosts((current) => current.filter((post) => post.id !== id));
+    setDeletingId(null);
   };
 
   return (
@@ -87,7 +121,7 @@ function CommunityScreen() {
             <p className="mt-1 text-lg leading-relaxed">{post.content}</p>
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-base font-semibold text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p>
-              <DeleteOwnPost post={post} onDelete={deletePost} />
+              <DeleteOwnPost post={post} deleting={deletingId === post.id} onDelete={deletePost} />
             </div>
           </Card>
         ))}
@@ -96,9 +130,13 @@ function CommunityScreen() {
   );
 }
 
-function DeleteOwnPost({ post, onDelete }: { post: Post; onDelete: (id: string) => void }) {
+function DeleteOwnPost({ post, deleting, onDelete }: { post: Post; deleting: boolean; onDelete: (id: string) => void }) {
   const [own, setOwn] = useState(false);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setOwn(data.user?.id === post.user_id)); }, [post.user_id]);
   if (!own) return null;
-  return <button type="button" aria-label="Delete post" onClick={() => void onDelete(post.id)} className="rounded-2xl border px-4 py-2 font-bold"><Trash2 className="inline h-5 w-5" /> Delete</button>;
+  return (
+    <button type="button" aria-label="Delete post" disabled={deleting} onClick={() => void onDelete(post.id)} className="rounded-2xl border px-4 py-2 font-bold disabled:opacity-50">
+      <Trash2 className="inline h-5 w-5" /> {deleting ? "Deleting…" : "Delete"}
+    </button>
+  );
 }
