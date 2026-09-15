@@ -4,6 +4,8 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { FormField } from "@/components/FormField";
 import { Card } from "@/components/Card";
+import { GoogleMap } from "@/components/GoogleMap";
+import type { GoogleMapLocation } from "@/lib/google-maps";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/host-event/details")({
@@ -22,6 +24,7 @@ function EventDetailsScreen() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
+  const [locationPoint, setLocationPoint] = useState<GoogleMapLocation | null>(null);
   const [inviteText, setInviteText] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -39,6 +42,11 @@ function EventDetailsScreen() {
   const filteredPeople = people.filter((p) => `${p.full_name} ${p.phone ?? ""}`.toLowerCase().includes(inviteText.toLowerCase()));
   const togglePerson = (id: string) => setSelected((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
 
+  const handleMapLocation = (selectedLocation: GoogleMapLocation) => {
+    setLocationPoint(selectedLocation);
+    setLocation(selectedLocation.name);
+  };
+
   const createEvent = async () => {
     if (!eventName.trim() || !date || !startTime || !location.trim() || saving) return;
     setSaving(true); setError(""); setMessage("");
@@ -50,8 +58,14 @@ function EventDetailsScreen() {
     if (endsAt && new Date(endsAt) <= new Date(startsAt)) { setError("End time must be after the start time."); setSaving(false); return; }
 
     const { data: event, error: eventError } = await supabase.from("events").insert({
-      host_id: user.id, name: eventName.trim(), description: description.trim() || null,
-      starts_at: startsAt, ends_at: endsAt, location_name: location.trim(),
+      host_id: user.id,
+      name: eventName.trim(),
+      description: description.trim() || null,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      location_name: location.trim(),
+      location_lat: locationPoint?.lat ?? null,
+      location_lng: locationPoint?.lng ?? null,
     }).select("id").single();
     if (eventError || !event) { setError(eventError?.message || "Could not create event."); setSaving(false); return; }
 
@@ -83,6 +97,7 @@ function EventDetailsScreen() {
         </div>
         <FormField label="End time" type="time" value={endTime} onChange={setEndTime} />
         <FormField label="Location" placeholder="Community hall, Sector 12" value={location} onChange={setLocation} />
+        <GoogleMap value={locationPoint} onLocationChange={handleMapLocation} />
         <FormField label="Find people to invite" placeholder="Search by name or phone" value={inviteText} onChange={setInviteText} />
         <div className="flex flex-col gap-2">
           {filteredPeople.slice(0, 8).map((person) => (
