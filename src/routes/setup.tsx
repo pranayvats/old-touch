@@ -17,12 +17,13 @@ function SetupScreen() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (!active) return;
-      if (!user) { navigate({ to: "/login", replace: true }); return; }
+      if (userError || !user) { navigate({ to: "/login", replace: true }); return; }
 
-      const { data: profile } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
+      const { data: profile, error: profileError } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
       if (!active) return;
+      if (profileError) setError(profileError.message);
       if (profile?.city) setCity(profile.city);
       setLoading(false);
     })();
@@ -34,8 +35,8 @@ function SetupScreen() {
     if (!cleanCity) return;
     setSaving(true); setError("");
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { navigate({ to: "/login", replace: true }); return; }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { navigate({ to: "/login", replace: true }); return; }
 
     const cleanName = String(user.user_metadata?.full_name ?? "Old Touch member").trim() || "Old Touch member";
     const metadataPhone = String(user.user_metadata?.phone ?? "").trim();
@@ -50,15 +51,21 @@ function SetupScreen() {
 
     if (emergencyContact.trim()) {
       const raw = emergencyContact.trim();
-      const phone = (raw.match(/\+?\d[\d\s()-]{7,}\d/)?.[0] ?? "").replace(/[^\d+]/g, "");
-      if (!phone) {
+      const phoneMatch = raw.match(/(?:\+?\d[\d\s()-]{7,}\d)/);
+      const phone = (phoneMatch?.[0] ?? "").replace(/[^\d+]/g, "");
+      if (phone.replace(/\D/g, "").length < 10) {
         setError("Please enter a valid emergency contact mobile number.");
         setSaving(false);
         return;
       }
-      const name = raw.replace(phone, "").replace(/[,:-]/g, " ").replace(/\s+/g, " ").trim() || "Emergency contact";
-      const { error: contactError } = await supabase.from("emergency_contacts").insert({ user_id: user.id, name, phone });
-      if (contactError) { setError(contactError.message); setSaving(false); return; }
+      const name = raw.replace(phoneMatch?.[0] ?? "", "").replace(/[,:-]/g, " ").replace(/\s+/g, " ").trim() || "Emergency contact";
+
+      // Avoid creating duplicate contacts if setup is opened again.
+      const { data: existing } = await supabase.from("emergency_contacts").select("id").eq("user_id", user.id).eq("phone", phone).maybeSingle();
+      if (!existing) {
+        const { error: contactError } = await supabase.from("emergency_contacts").insert({ user_id: user.id, name, phone });
+        if (contactError) { setError(contactError.message); setSaving(false); return; }
+      }
     }
 
     localStorage.setItem("old-touch-setup-complete", "true");
@@ -72,7 +79,7 @@ function SetupScreen() {
     <div className="mb-8"><h1 className="text-4xl font-black">A few things first</h1><p className="mt-2 text-lg font-semibold text-muted-foreground">These help Old Touch show useful local information and make it easier to get help.</p></div>
     <div className="flex flex-col gap-5">
       <FormField label="Your town or city" placeholder="e.g. New Delhi" value={city} onChange={setCity} />
-      <FormField label="Emergency contact" placeholder="e.g. Ramesh — 98765 43210" optional value={emergencyContact} onChange={setEmergencyContact} />
+      <FormField label="Emergency contact" placeholder="e.g. Ramesh — 98765 43210" value={emergencyContact} onChange={setEmergencyContact} />
       <p className="text-base font-medium text-muted-foreground">You can add or change emergency contacts later.</p>
       {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
     </div>
