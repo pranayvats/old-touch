@@ -6,18 +6,28 @@ export const NEARBY_CATEGORIES: NearbyCategory[] = [
   { label: "Hospitals", icon: "🏥", tag: "hospital" },
   { label: "Pharmacies", icon: "💊", tag: "pharmacy" },
   { label: "Restaurants", icon: "🍴", tag: "restaurant" },
-  { label: "Community places", icon: "🏛️", tag: "community_centre" },
+  { label: "Community places", icon: "🏛️", tag: "community" },
 ];
 
 type PlaceResult = { name: string; address: string; lat: number; lng: number };
-
 type Coordinates = { lat: number; lng: number };
 
-async function searchNearbyOverpass(tag: string, { lat, lng }: Coordinates): Promise<PlaceResult[]> {
-  const query = `[out:json][timeout:20];(node[amenity=${tag}](around:5000,${lat},${lng});way[amenity=${tag}](around:5000,${lat},${lng});relation[amenity=${tag}](around:5000,${lat},${lng}););out center tags;`;
+function buildOverpassQuery(tag: string, { lat, lng }: Coordinates) {
+  const filters = {
+    hospital: ["node[amenity=hospital]", "way[amenity=hospital]", "relation[amenity=hospital]", "node[healthcare=hospital]", "way[healthcare=hospital]", "relation[healthcare=hospital]"],
+    pharmacy: ["node[amenity=pharmacy]", "way[amenity=pharmacy]", "relation[amenity=pharmacy]"],
+    restaurant: ["node[amenity=restaurant]", "way[amenity=restaurant]", "relation[amenity=restaurant]", "node[amenity=fast_food]", "way[amenity=fast_food]"],
+    community: ["node[amenity=community_centre]", "way[amenity=community_centre]", "relation[amenity=community_centre]", "node[leisure=community_centre]", "way[leisure=community_centre]", "node[amenity=social_centre]", "way[amenity=social_centre]"],
+  }[tag] ?? [];
+  return `[out:json][timeout:25];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
+}
+
+async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<PlaceResult[]> {
+  const query = buildOverpassQuery(tag, center);
   const endpoints = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
   ];
   let lastError: unknown;
   for (const endpoint of endpoints) {
@@ -25,6 +35,7 @@ async function searchNearbyOverpass(tag: string, { lat, lng }: Coordinates): Pro
       const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`);
       if (!response.ok) throw new Error("Nearby search server is busy.");
       const data = await response.json();
+      const seen = new Set<string>();
       return (data.elements ?? []).map((item: any) => {
         const point = item.type === "node" ? { lat: item.lat, lng: item.lon } : { lat: item.center?.lat, lng: item.center?.lon };
         const tags = item.tags ?? {};
@@ -33,7 +44,13 @@ async function searchNearbyOverpass(tag: string, { lat, lng }: Coordinates): Pro
           address: [tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"], tags["addr:city"]].filter(Boolean).join(", ") || "Address unavailable",
           lat: Number(point.lat), lng: Number(point.lng),
         };
-      }).filter((place: PlaceResult) => Number.isFinite(place.lat) && Number.isFinite(place.lng)).slice(0, 20);
+      }).filter((place: PlaceResult) => {
+        if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return false;
+        const key = `${place.name}|${place.lat.toFixed(5)}|${place.lng.toFixed(5)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 30);
     } catch (error) { lastError = error; }
   }
   throw lastError instanceof Error ? lastError : new Error("Could not load nearby places.");
@@ -44,14 +61,15 @@ export function NearbyPlacesMap() {
   const mapRef = useRef<any>(null);
   const markerRefs = useRef<any[]>([]);
   const centerRef = useRef<Coordinates | null>(null);
+  const watchIdRef = useRef<number | null>(null);
   const [category, setCategory] = useState("hospital");
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState("");
-  const [locationLabel, setLocationLabel] = useState("Finding your location…");
+  const [locationLabel, setLocationLabel] = useState("Finding your exact location…");
 
-  const searchNearby = async (nextCategory: string) => {
-    const center = centerRef.current;
+  const searchNearby = async (nextCategory: string, center = centerRef.current) => {
     if (!center) return;
     setLoading(true); setMessage("");
     try {
@@ -63,42 +81,53 @@ export function NearbyPlacesMap() {
         const L = window.L;
         nextPlaces.forEach((place) => markerRefs.current.push(L.marker([place.lat, place.lng]).addTo(mapRef.current).bindPopup(place.name)));
       }
-      if (!nextPlaces.length) setMessage("No mapped places found within 5 km. Try another category or move the map.");
+      if (!nextPlaces.length) setMessage("No mapped places found within 7 km of your location.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load nearby places."); }
     finally { setLoading(false); }
+  };
+
+  const locateAndSearch = async (nextCategory = category) => {
+    if (!navigator.geolocation) { setMessage("Location is not supported by this device."); return; }
+    setLocating(true); setMessage("");
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }));
+      const accuracy = position.coords.accuracy;
+      if (accuracy > 500) throw new Error(`Your device only provided an approximate location (±${Math.round(accuracy)} m). Turn on precise location and try again.`);
+      const center = { lat: position.coords.latitude, lng: position.coords.longitude };
+      centerRef.current = center;
+      setLocationLabel(`Your location (±${Math.round(accuracy)} m)`);
+      if (mapRef.current) {
+        mapRef.current.setView([center.lat, center.lng], 16);
+      }
+      await searchNearby(nextCategory, center);
+    } catch (error) {
+      setLoading(false);
+      setMessage(error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED ? "Location access is blocked. Allow location access for Old Touch and try again." : error instanceof Error ? error.message : "Could not get your location.");
+    } finally { setLocating(false); }
   };
 
   useEffect(() => {
     let cancelled = false;
     void loadLeaflet().then(async (L) => {
       if (cancelled || !mapElement.current) return;
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject(new Error("Location is not supported by this device."));
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
-        });
-        if (position.coords.accuracy > 1000) throw new Error("Location accuracy is too low. Please enable precise location and try again.");
-        centerRef.current = { lat: position.coords.latitude, lng: position.coords.longitude };
-        setLocationLabel(`Your location (±${Math.round(position.coords.accuracy)} m)`);
-      } catch {
-        centerRef.current = null;
-        setLocationLabel("Location permission is needed to find places near you.");
-        setLoading(false);
-        setMessage("Please allow location access in your browser, then refresh the page.");
-        return;
-      }
-      if (cancelled || !centerRef.current) return;
-      mapRef.current = L.map(mapElement.current, { zoomControl: true }).setView([centerRef.current.lat, centerRef.current.lng], 15);
+      mapRef.current = L.map(mapElement.current, { zoomControl: true });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapRef.current);
-      L.marker([centerRef.current.lat, centerRef.current.lng]).addTo(mapRef.current).bindPopup("You are here");
-      await searchNearby(category);
+      await locateAndSearch("hospital");
     }).catch((error: Error) => { if (!cancelled) { setLoading(false); setMessage(error.message); } });
-    return () => { cancelled = true; if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
+    return () => {
+      cancelled = true;
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+    };
   }, []);
 
   return (
     <div className="space-y-4">
-      <p className="rounded-2xl bg-muted p-4 text-base font-bold">📍 {locationLabel}</p>
+      <div className="flex items-center gap-3 rounded-2xl bg-muted p-4">
+        <span className="text-xl" aria-hidden="true">📍</span>
+        <p className="flex-1 text-base font-bold">{locationLabel}</p>
+        <button type="button" onClick={() => void locateAndSearch()} disabled={locating} className="rounded-xl bg-primary px-4 py-2 text-sm font-extrabold text-primary-foreground disabled:opacity-50">{locating ? "Locating…" : "Update"}</button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         {NEARBY_CATEGORIES.map((item) => (
           <button key={item.tag} type="button" onClick={() => { setCategory(item.tag); void searchNearby(item.tag); }} className={`rounded-2xl border-2 p-4 text-left text-lg font-extrabold ${category === item.tag ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
