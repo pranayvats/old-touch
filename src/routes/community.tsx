@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { Plus, Trash2, Users, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/Card";
@@ -17,6 +17,7 @@ function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
   const [error, setError] = useState("");
 
   const loadPosts = async () => {
@@ -58,19 +59,23 @@ function CommunityScreen() {
     const { data: deletedRows, error: deleteError } = await supabase.from("community_posts").delete().eq("id", id).eq("user_id", user.id).select("id");
     if (deleteError) { setError(`Could not delete post: ${deleteError.message}`); setDeletingId(null); return; }
     if (!deletedRows?.length) { setError("Could not delete this post. You can only delete your own posts."); setDeletingId(null); return; }
-    setPosts((current) => current.filter((post) => post.id !== id)); setDeletingId(null);
+    setPosts((current) => current.filter((post) => post.id !== id));
+    setPostToDelete(null);
+    setDeletingId(null);
   };
 
   return <AppShell><PageHeader title="My Community" subtitle="People and news near you" /><main className="flex flex-col gap-4 p-5">
     <Card><div className="flex items-center gap-2 text-xl font-extrabold"><Plus className="h-6 w-6" /> Share with your community</div><FormField label="Your message" placeholder="What would you like to tell your community?" value={content} onChange={setContent} multiline /><button type="button" onClick={createPost} disabled={!content.trim() || posting} className="mt-4 w-full rounded-3xl bg-primary px-6 py-4 text-xl font-extrabold text-primary-foreground disabled:opacity-50">{posting ? "Posting…" : "Post"}</button></Card>
     {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
-    {loading ? <p className="p-4 text-lg font-semibold">Loading community…</p> : posts.length === 0 ? <Card><p className="text-lg font-semibold">No posts yet. Be the first to share something!</p></Card> : posts.map((post) => <Card key={post.id}><div className="flex items-center gap-2 text-base font-bold text-primary"><Users className="h-5 w-5" /><span>{post.author?.city || "Your community"}</span></div><p className="mt-2 text-lg font-black">{post.author?.full_name || "Community member"}</p><p className="mt-1 text-lg leading-relaxed">{post.content}</p><div className="mt-3 flex items-center justify-between gap-3"><p className="text-base font-semibold text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p><DeleteOwnPost post={post} deleting={deletingId === post.id} onDelete={deletePost} /></div></Card>)}
-  </main></AppShell>;
+    {loading ? <p className="p-4 text-lg font-semibold">Loading community…</p> : posts.length === 0 ? <Card><p className="text-lg font-semibold">No posts yet. Be the first to share something!</p></Card> : posts.map((post) => <Card key={post.id}><div className="flex items-center gap-2 text-base font-bold text-primary"><Users className="h-5 w-5" /><span>{post.author?.city || "Your community"}</span></div><p className="mt-2 text-lg font-black">{post.author?.full_name || "Community member"}</p><p className="mt-1 text-lg leading-relaxed">{post.content}</p><div className="mt-3 flex items-center justify-between gap-3"><p className="text-base font-semibold text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p><DeleteOwnPost post={post} deleting={deletingId === post.id} onDelete={() => setPostToDelete(post)} /></div></Card>)}
+  </main>
+  {postToDelete && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" role="dialog" aria-modal="true" aria-labelledby="delete-post-title"><Card><div className="flex items-start justify-between gap-4"><div><h2 id="delete-post-title" className="text-2xl font-black">Delete this post?</h2><p className="mt-2 text-lg font-semibold text-muted-foreground">This post will be permanently removed.</p></div><button type="button" aria-label="Close" onClick={() => setPostToDelete(null)} disabled={!!deletingId} className="rounded-full p-2"><X className="h-6 w-6" /></button></div><div className="mt-5 flex gap-3"><button type="button" onClick={() => setPostToDelete(null)} disabled={!!deletingId} className="flex-1 rounded-3xl border px-5 py-4 text-lg font-extrabold">Cancel</button><button type="button" onClick={() => void deletePost(postToDelete.id)} disabled={!!deletingId} className="flex-1 rounded-3xl bg-destructive px-5 py-4 text-lg font-extrabold text-destructive-foreground disabled:opacity-50">{deletingId ? "Deleting…" : "Delete"}</button></div></Card></div>}
+  </AppShell>;
 }
 
-function DeleteOwnPost({ post, deleting, onDelete }: { post: Post; deleting: boolean; onDelete: (id: string) => void }) {
+function DeleteOwnPost({ post, deleting, onDelete }: { post: Post; deleting: boolean; onDelete: () => void }) {
   const [own, setOwn] = useState(false);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setOwn(data.user?.id === post.user_id)); }, [post.user_id]);
   if (!own) return null;
-  return <button type="button" aria-label="Delete post" disabled={deleting} onClick={() => void onDelete(post.id)} className="rounded-2xl border px-4 py-2 font-bold disabled:opacity-50"><Trash2 className="inline h-5 w-5" /> {deleting ? "Deleting…" : "Delete"}</button>;
+  return <button type="button" aria-label="Delete post" disabled={deleting} onClick={onDelete} className="rounded-2xl border px-4 py-2 font-bold disabled:opacity-50"><Trash2 className="inline h-5 w-5" /> {deleting ? "Deleting…" : "Delete"}</button>;
 }
