@@ -19,6 +19,7 @@
  */
 
 @theme inline {
+  --font-sans: "Nunito", ui-rounded, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -142,8 +143,24 @@
     border-color: var(--color-border);
   }
 
+  html {
+    font-size: 18px;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
   }
+}
+
+/* App shell: centers the phone-width app on larger screens */
+@utility app-shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 28rem;
+  min-height: 100dvh;
+  background-color: var(--color-background);
+  display: flex;
+  flex-direction: column;
 }
