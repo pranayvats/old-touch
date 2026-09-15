@@ -20,7 +20,7 @@ function LoginScreen() {
     setError("");
     const value = identifier.trim();
     const credentials = value.includes("@")
-      ? { email: value, password }
+      ? { email: value.toLowerCase(), password }
       : { phone: value.replace(/\s+/g, ""), password };
     const { error: authError } = await supabase.auth.signInWithPassword(credentials);
     if (authError) {
@@ -38,7 +38,7 @@ function LoginScreen() {
       <main className="flex flex-1 flex-col p-6 pt-12">
         <div className="mb-10 text-center"><h1 className="text-5xl font-black tracking-tight">Old Touch</h1><p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p></div>
         <div className="flex flex-col gap-5">
-          <FormField label="Mobile number or email" placeholder="Enter your mobile number" value={identifier} onChange={setIdentifier} />
+          <FormField label="Email address or mobile number" placeholder="Enter your email or mobile number" value={identifier} onChange={setIdentifier} />
           <FormField label="Password" type="password" placeholder="Enter your password" value={password} onChange={setPassword} />
           <label className="flex items-center gap-3 text-lg font-semibold"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-6 w-6" />Remember me</label>
           {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
