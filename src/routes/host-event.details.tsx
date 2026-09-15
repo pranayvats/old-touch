@@ -7,7 +7,7 @@ import { Card } from "@/components/Card";
 
 export const Route = createFileRoute("/host-event/details")({
   validateSearch: (search: Record<string, unknown>) => ({
-    name: typeof search.name === "string" ? search.name : "",
+    name: typeof search["name"] === "string" ? search["name"] : "",
   }),
   head: () => ({
     meta: [
