@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "@/lib/google-maps";
+import { loadLeaflet } from "@/lib/openstreetmap";
 
 export type NearbyCategory = {
   label: string;
   icon: string;
-  type: string;
+  tag: string;
 };
 
 export const NEARBY_CATEGORIES: NearbyCategory[] = [
-  { label: "Hospitals", icon: "🏥", type: "hospital" },
-  { label: "Pharmacies", icon: "💊", type: "pharmacy" },
-  { label: "Restaurants", icon: "🍴", type: "restaurant" },
-  { label: "Community places", icon: "🏛️", type: "community_center" },
+  { label: "Hospitals", icon: "🏥", tag: "hospital" },
+  { label: "Pharmacies", icon: "💊", tag: "pharmacy" },
+  { label: "Restaurants", icon: "🍴", tag: "restaurant" },
+  { label: "Community places", icon: "🏛️", tag: "community_centre" },
 ];
 
 type PlaceResult = {
@@ -19,8 +19,25 @@ type PlaceResult = {
   address: string;
   lat: number;
   lng: number;
-  mapsUri: string;
 };
+
+async function searchNearbyOverpass(tag: string, lat: number, lng: number): Promise<PlaceResult[]> {
+  const query = `[out:json][timeout:12];(node[amenity=${tag}](around:5000,${lat},${lng});way[amenity=${tag}](around:5000,${lat},${lng}););out center tags;`;
+  const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+  if (!response.ok) throw new Error("Nearby place search is busy. Please try again.");
+  const data = await response.json();
+
+  return (data.elements ?? []).slice(0, 12).map((item: any) => {
+    const point = item.type === "node" ? { lat: item.lat, lng: item.lon } : { lat: item.center?.lat, lng: item.center?.lon };
+    const tags = item.tags ?? {};
+    return {
+      name: tags.name ?? "Unnamed place",
+      address: [tags["addr:housenumber"], tags["addr:street"], tags["addr:city"]].filter(Boolean).join(", ") || "Address unavailable",
+      lat: Number(point.lat),
+      lng: Number(point.lng),
+    };
+  }).filter((place: PlaceResult) => Number.isFinite(place.lat) && Number.isFinite(place.lng));
+}
 
 export function NearbyPlacesMap() {
   const mapElement = useRef<HTMLDivElement | null>(null);
@@ -30,49 +47,22 @@ export function NearbyPlacesMap() {
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const centerRef = useRef({ lat: 28.6139, lng: 77.209 });
 
-  const searchNearby = async (nextCategory: string, center?: { lat: number; lng: number }) => {
-    if (!window.google?.maps || !mapRef.current) return;
+  const searchNearby = async (nextCategory: string) => {
     setLoading(true);
     setMessage("");
-
     try {
-      const [{ Place, SearchNearbyRankPreference }, { AdvancedMarkerElement }] = await Promise.all([
-        window.google.maps.importLibrary("places"),
-        window.google.maps.importLibrary("marker"),
-      ]);
-      const mapCenter = center ?? mapRef.current.getCenter();
-      const request = {
-        fields: ["displayName", "location", "formattedAddress", "googleMapsURI"],
-        locationRestriction: { center: mapCenter, radius: 5000 },
-        includedPrimaryTypes: [nextCategory],
-        maxResultCount: 10,
-        rankPreference: SearchNearbyRankPreference.DISTANCE,
-      };
-      const response = await Place.searchNearby(request);
-
-      markerRefs.current.forEach((marker) => { marker.map = null; });
-      markerRefs.current = [];
-
-      const nextPlaces: PlaceResult[] = [];
-      for (const place of response.places ?? []) {
-        if (!place.location) continue;
-        const lat = place.location.lat();
-        const lng = place.location.lng();
-        nextPlaces.push({
-          name: place.displayName ?? "Unnamed place",
-          address: place.formattedAddress ?? "Address unavailable",
-          lat,
-          lng,
-          mapsUri: place.googleMapsURI ?? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-        });
-        markerRefs.current.push(new AdvancedMarkerElement({
-          map: mapRef.current,
-          position: { lat, lng },
-          title: place.displayName ?? "Place",
-        }));
-      }
+      const nextPlaces = await searchNearbyOverpass(nextCategory, centerRef.current.lat, centerRef.current.lng);
       setPlaces(nextPlaces);
+      markerRefs.current.forEach((marker) => marker.remove());
+      markerRefs.current = [];
+      if (mapRef.current) {
+        const L = window.L;
+        nextPlaces.forEach((place) => {
+          markerRefs.current.push(L.marker([place.lat, place.lng]).addTo(mapRef.current).bindPopup(place.name));
+        });
+      }
       if (!nextPlaces.length) setMessage("No nearby places found. Try another category.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load nearby places.");
@@ -83,27 +73,24 @@ export function NearbyPlacesMap() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadGoogleMaps().then(async (google) => {
+    void loadLeaflet().then(async (L) => {
       if (cancelled || !mapElement.current) return;
-      let center = { lat: 28.6139, lng: 77.2090 };
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 7000 });
         });
-        center = { lat: position.coords.latitude, lng: position.coords.longitude };
+        centerRef.current = { lat: position.coords.latitude, lng: position.coords.longitude };
       } catch {
-        // Delhi is only the initial fallback; the user can still move the map.
+        // Delhi is only the initial fallback if location permission is denied.
       }
       if (cancelled) return;
-      mapRef.current = new google.maps.Map(mapElement.current, {
-        center,
-        zoom: 14,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        gestureHandling: "greedy",
-      });
-      await searchNearby(category, center);
+      mapRef.current = L.map(mapElement.current, { gestureHandling: true }).setView([centerRef.current.lat, centerRef.current.lng], 14);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(mapRef.current);
+      L.marker([centerRef.current.lat, centerRef.current.lng]).addTo(mapRef.current).bindPopup("You are here");
+      await searchNearby(category);
     }).catch((error: Error) => {
       if (!cancelled) {
         setLoading(false);
@@ -111,7 +98,13 @@ export function NearbyPlacesMap() {
       }
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, []);
 
   const chooseCategory = (nextCategory: string) => {
@@ -123,14 +116,8 @@ export function NearbyPlacesMap() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         {NEARBY_CATEGORIES.map((item) => (
-          <button
-            key={item.type}
-            type="button"
-            onClick={() => chooseCategory(item.type)}
-            className={`rounded-2xl border-2 p-4 text-left text-lg font-extrabold ${category === item.type ? "border-primary bg-primary/10" : "border-border bg-card"}`}
-          >
-            <span className="mr-2 text-2xl" aria-hidden="true">{item.icon}</span>
-            {item.label}
+          <button key={item.tag} type="button" onClick={() => chooseCategory(item.tag)} className={`rounded-2xl border-2 p-4 text-left text-lg font-extrabold ${category === item.tag ? "border-primary bg-primary/10" : "border-border bg-card"}`}>
+            <span className="mr-2 text-2xl" aria-hidden="true">{item.icon}</span>{item.label}
           </button>
         ))}
       </div>
@@ -142,17 +129,11 @@ export function NearbyPlacesMap() {
           <div key={`${place.lat}-${place.lng}-${place.name}`} className="rounded-3xl border-2 border-border bg-card p-5 shadow-sm">
             <h3 className="text-xl font-black">{place.name}</h3>
             <p className="mt-1 text-base font-medium text-muted-foreground">{place.address}</p>
-            <a
-              href={place.mapsUri}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex rounded-2xl bg-primary px-5 py-3 text-lg font-extrabold text-primary-foreground"
-            >
-              Directions
-            </a>
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-2xl bg-primary px-5 py-3 text-lg font-extrabold text-primary-foreground">Directions</a>
           </div>
         ))}
       </div>
+      <p className="text-sm font-medium text-muted-foreground">Map data © OpenStreetMap contributors.</p>
     </div>
   );
 }
