@@ -14,15 +14,19 @@ type Coordinates = { lat: number; lng: number };
 
 function buildOverpassQuery(tag: string, { lat, lng }: Coordinates) {
   const filters = {
-    hospital: ["node[amenity=hospital]", "way[amenity=hospital]", "relation[amenity=hospital]", "node[healthcare=hospital]", "way[healthcare=hospital]", "relation[healthcare=hospital]"],
+    hospital: [
+      "node[amenity=hospital]", "way[amenity=hospital]", "relation[amenity=hospital]",
+      "node[healthcare=hospital]", "way[healthcare=hospital]", "relation[healthcare=hospital]",
+      "node[healthcare=clinic]", "way[healthcare=clinic]", "relation[healthcare=clinic]",
+    ],
     pharmacy: ["node[amenity=pharmacy]", "way[amenity=pharmacy]", "relation[amenity=pharmacy]"],
     restaurant: ["node[amenity=restaurant]", "way[amenity=restaurant]", "relation[amenity=restaurant]", "node[amenity=fast_food]", "way[amenity=fast_food]"],
     community: ["node[amenity=community_centre]", "way[amenity=community_centre]", "relation[amenity=community_centre]", "node[leisure=community_centre]", "way[leisure=community_centre]", "node[amenity=social_centre]", "way[amenity=social_centre]"],
   }[tag] ?? [];
-  return `[out:json][timeout:15];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
+  return `[out:json][timeout:12];(${filters.map((filter) => `${filter}(around:5000,${lat},${lng});`).join("")});out center tags;`;
 }
 
-async function fetchWithTimeout(url: string, ms = 8000) {
+async function fetchWithTimeout(url: string, ms = 12000) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), ms);
   try {
@@ -32,6 +36,25 @@ async function fetchWithTimeout(url: string, ms = 8000) {
   }
 }
 
+async function queryEndpoint(endpoint: string, query: string): Promise<PlaceResult[]> {
+  const response = await fetchWithTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 12000);
+  if (!response.ok) throw new Error(`Nearby server returned ${response.status}.`);
+  const data = await response.json();
+  const seen = new Set<string>();
+  return (data.elements ?? []).map((item: any) => {
+    const point = item.type === "node" ? { lat: item.lat, lng: item.lon } : { lat: item.center?.lat, lng: item.center?.lon };
+    const tags = item.tags ?? {};
+    const address = [tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"], tags["addr:city"], tags["addr:district"], tags["addr:state"], tags["addr:postcode"]].filter(Boolean).join(", ");
+    return { name: tags.name ?? "Unnamed place", address: address || "Address not listed on OpenStreetMap", lat: Number(point.lat), lng: Number(point.lng) };
+  }).filter((place: PlaceResult) => {
+    if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return false;
+    const key = `${place.name}|${place.lat.toFixed(5)}|${place.lng.toFixed(5)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 30);
+}
+
 async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<PlaceResult[]> {
   const query = buildOverpassQuery(tag, center);
   const endpoints = [
@@ -39,36 +62,14 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
   ];
-  let lastError: unknown;
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetchWithTimeout(`${endpoint}?data=${encodeURIComponent(query)}`, 8000);
-      if (!response.ok) throw new Error("Nearby search server is busy.");
-      const data = await response.json();
-      const seen = new Set<string>();
-      return (data.elements ?? []).map((item: any) => {
-        const point = item.type === "node" ? { lat: item.lat, lng: item.lon } : { lat: item.center?.lat, lng: item.center?.lon };
-        const tags = item.tags ?? {};
-        const address = [
-          tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"],
-          tags["addr:city"], tags["addr:district"], tags["addr:state"], tags["addr:postcode"],
-        ].filter(Boolean).join(", ");
-        return {
-          name: tags.name ?? "Unnamed place",
-          address: address || "Address not listed on OpenStreetMap",
-          lat: Number(point.lat),
-          lng: Number(point.lng),
-        };
-      }).filter((place: PlaceResult) => {
-        if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return false;
-        const key = `${place.name}|${place.lat.toFixed(5)}|${place.lng.toFixed(5)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).slice(0, 30);
-    } catch (error) { lastError = error; }
+  // Try all mirrors at once. The first healthy mirror wins, so one slow/broken
+  // mirror cannot make the user wait through a long sequence of timeouts.
+  const attempts = endpoints.map((endpoint) => queryEndpoint(endpoint, query));
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error("Nearby places are temporarily unavailable. Press Update and try again.");
   }
-  throw lastError instanceof Error ? lastError : new Error("Could not load nearby places. Check your internet connection and press Update.");
 }
 
 async function reverseGeocode(center: Coordinates): Promise<string> {
@@ -88,15 +89,11 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
       settled = true;
       callback(value);
     };
-    const timer = window.setTimeout(() => {
-      finish(reject, new Error("Location lookup is taking too long. Check your browser's location permission and press Update."));
-    }, 6000);
+    const timer = window.setTimeout(() => finish(reject, new Error("Location lookup is taking too long. Check your browser's location permission and press Update.")), 6000);
     navigator.geolocation.getCurrentPosition(
       (position) => { window.clearTimeout(timer); finish(resolve, position); },
       (error) => { window.clearTimeout(timer); finish(reject, error); },
-      // A desktop browser can take a long time when high-accuracy GPS is requested.
-      // Network/Wi-Fi location is fast enough for nearby-place searches.
-      { enableHighAccuracy: false, maximumAge: 30000, timeout: 5000 },
+      { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 },
     );
   });
 }
@@ -125,7 +122,7 @@ export function NearbyPlacesMap() {
         const L = window.L;
         nextPlaces.forEach((place) => markerRefs.current.push(L.marker([place.lat, place.lng]).addTo(mapRef.current).bindPopup(place.name)));
       }
-      if (!nextPlaces.length) setMessage("No mapped places found within 7 km of your location.");
+      if (!nextPlaces.length) setMessage("No mapped places found within 5 km of your location.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load nearby places."); }
     finally { setLoading(false); }
   };
@@ -135,13 +132,12 @@ export function NearbyPlacesMap() {
     try {
       const position = await getCurrentPosition();
       const accuracy = position.coords.accuracy;
-      if (!Number.isFinite(accuracy) || accuracy > 1000) throw new Error(`Your device only provided an approximate location (±${Math.round(accuracy)} m). Turn on precise location and try again.`);
+      if (!Number.isFinite(accuracy) || accuracy > 3000) throw new Error(`Your device only provided an approximate location (±${Math.round(accuracy)} m). Turn on precise location and try again.`);
       const center = { lat: position.coords.latitude, lng: position.coords.longitude };
       centerRef.current = center;
       setLocationLabel(`Your location (±${Math.round(accuracy)} m)`);
       if (mapRef.current) mapRef.current.setView([center.lat, center.lng], 15);
-      // Address lookup is deliberately non-blocking so nearby places appear immediately.
-      void reverseGeocode(center).then((address) => setLocationLabel(address)).catch(() => setLocationLabel("Your current location"));
+      void reverseGeocode(center).then((address) => setLocationLabel(address)).catch(() => {});
       await searchNearby(nextCategory, center);
     } catch (error) {
       setLoading(false);
