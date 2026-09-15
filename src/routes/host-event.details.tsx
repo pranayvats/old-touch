@@ -4,9 +4,9 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { FormField } from "@/components/FormField";
 import { Card } from "@/components/Card";
-import { GoogleMap } from "@/components/GoogleMap";
-import type { GoogleMapLocation } from "@/lib/google-maps";
+import { OpenStreetMap } from "@/components/OpenStreetMap";
 import { supabase } from "@/lib/supabase";
+import type { MapLocation } from "@/lib/openstreetmap";
 
 export const Route = createFileRoute("/host-event/details")({
   validateSearch: (search: Record<string, unknown>) => ({ name: typeof search.name === "string" ? search.name : "" }),
@@ -24,7 +24,7 @@ function EventDetailsScreen() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState("");
-  const [locationPoint, setLocationPoint] = useState<GoogleMapLocation | null>(null);
+  const [mapLocation, setMapLocation] = useState<MapLocation | null>(null);
   const [inviteText, setInviteText] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -42,8 +42,8 @@ function EventDetailsScreen() {
   const filteredPeople = people.filter((p) => `${p.full_name} ${p.phone ?? ""}`.toLowerCase().includes(inviteText.toLowerCase()));
   const togglePerson = (id: string) => setSelected((current) => current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
 
-  const handleMapLocation = (selectedLocation: GoogleMapLocation) => {
-    setLocationPoint(selectedLocation);
+  const handleMapLocation = (selectedLocation: MapLocation) => {
+    setMapLocation(selectedLocation);
     setLocation(selectedLocation.name);
   };
 
@@ -64,8 +64,8 @@ function EventDetailsScreen() {
       starts_at: startsAt,
       ends_at: endsAt,
       location_name: location.trim(),
-      location_lat: locationPoint?.lat ?? null,
-      location_lng: locationPoint?.lng ?? null,
+      location_lat: mapLocation?.lat ?? null,
+      location_lng: mapLocation?.lng ?? null,
     }).select("id").single();
     if (eventError || !event) { setError(eventError?.message || "Could not create event."); setSaving(false); return; }
 
@@ -77,7 +77,6 @@ function EventDetailsScreen() {
         setSaving(false);
         return;
       }
-      // Notifications are created by a secure database trigger after each invitation.
     }
 
     setMessage(invitees.length ? `✓ Event created and ${invitees.length} invitation${invitees.length === 1 ? "" : "s"} sent!` : "✓ Event created successfully!");
@@ -96,8 +95,8 @@ function EventDetailsScreen() {
           <FormField label="Start time" type="time" value={startTime} onChange={setStartTime} />
         </div>
         <FormField label="End time" type="time" value={endTime} onChange={setEndTime} />
-        <FormField label="Location" placeholder="Community hall, Sector 12" value={location} onChange={setLocation} />
-        <GoogleMap value={locationPoint} onLocationChange={handleMapLocation} />
+        <FormField label="Location" placeholder="Community hall, Sector 12" value={location} onChange={(value) => { setLocation(value); setMapLocation(null); }} />
+        <OpenStreetMap value={mapLocation} onLocationChange={handleMapLocation} />
         <FormField label="Find people to invite" placeholder="Search by name or phone" value={inviteText} onChange={setInviteText} />
         <div className="flex flex-col gap-2">
           {filteredPeople.slice(0, 8).map((person) => (
@@ -110,7 +109,7 @@ function EventDetailsScreen() {
         {error && <p className="rounded-2xl bg-destructive/10 p-4 font-bold text-destructive">{error}</p>}
         {message && <p className="rounded-2xl bg-primary/10 p-5 text-center text-xl font-black">{message}</p>}
         <button type="button" onClick={createEvent} disabled={saving || !eventName.trim() || !date || !startTime || !location.trim()} className="mt-2 w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:opacity-50">{saving ? "Creating…" : "Create Event"}</button>
-        <Card><p className="text-base font-medium text-muted-foreground">Invited people will receive an Old Touch notification and can respond to the invitation.</p></Card>
+        <Card><p className="text-base font-medium text-muted-foreground">Your event location is saved from the map when you choose a place.</p></Card>
       </main>
     </AppShell>
   );
