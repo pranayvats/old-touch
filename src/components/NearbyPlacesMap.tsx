@@ -49,9 +49,13 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
       return (data.elements ?? []).map((item: any) => {
         const point = item.type === "node" ? { lat: item.lat, lng: item.lon } : { lat: item.center?.lat, lng: item.center?.lon };
         const tags = item.tags ?? {};
+        const address = [
+          tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"],
+          tags["addr:city"], tags["addr:district"], tags["addr:state"], tags["addr:postcode"],
+        ].filter(Boolean).join(", ");
         return {
           name: tags.name ?? "Unnamed place",
-          address: [tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"], tags["addr:city"]].filter(Boolean).join(", ") || "Address unavailable",
+          address: address || "Address not listed on OpenStreetMap",
           lat: Number(point.lat),
           lng: Number(point.lng),
         };
@@ -65,6 +69,14 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
     } catch (error) { lastError = error; }
   }
   throw lastError instanceof Error ? lastError : new Error("Could not load nearby places. Check your internet connection and press Update.");
+}
+
+async function reverseGeocode(center: Coordinates): Promise<string> {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(center.lat)}&lon=${encodeURIComponent(center.lng)}&zoom=18&addressdetails=1`;
+  const response = await fetchWithTimeout(url, 8000);
+  if (!response.ok) throw new Error("Could not find the address for your location.");
+  const data = await response.json();
+  return data.display_name || "Your current location";
 }
 
 function getCurrentPosition(): Promise<GeolocationPosition> {
@@ -126,6 +138,7 @@ export function NearbyPlacesMap() {
       centerRef.current = center;
       setLocationLabel(`Your location (±${Math.round(accuracy)} m)`);
       if (mapRef.current) mapRef.current.setView([center.lat, center.lng], 15);
+      void reverseGeocode(center).then((address) => setLocationLabel(address)).catch(() => {});
       await searchNearby(nextCategory, center);
     } catch (error) {
       setLoading(false);
