@@ -55,7 +55,7 @@ declare module '@tanstack/react-router' {
     '/community': { id: '/community'; path: '/community'; fullPath: '/community'; preLoaderRoute: typeof CommunityRouteImport; parentRoute: typeof rootRouteImport }
     '/emergency': { id: '/emergency'; path: '/emergency'; fullPath: '/emergency'; preLoaderRoute: typeof EmergencyRouteImport; parentRoute: typeof rootRouteImport }
     '/healthy-food': { id: '/healthy-food'; path: '/healthy-food'; fullPath: '/healthy-food'; preLoaderRoute: typeof HealthyFoodRouteImport; parentRoute: typeof rootRouteImport }
-    '/host-event': { id: '/host-event'; path: '/host-event'; fullPath: '/host-event'; preLoaderRoute: typeof HealthyFoodRouteImport; parentRoute: typeof rootRouteImport }
+    '/host-event': { id: '/host-event'; path: '/host-event'; fullPath: '/host-event'; preLoaderRoute: typeof HostEventRouteImport; parentRoute: typeof rootRouteImport }
     '/near-me': { id: '/near-me'; path: '/near-me'; fullPath: '/near-me'; preLoaderRoute: typeof NearMeRouteImport; parentRoute: typeof rootRouteImport }
     '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof rootRouteImport }
     '/signup': { id: '/signup'; path: '/signup'; fullPath: '/signup'; preLoaderRoute: typeof SignupRouteImport; parentRoute: typeof rootRouteImport }
