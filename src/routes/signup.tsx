@@ -6,12 +6,11 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/signup")({ component: SignupScreen });
 
-type Provider = "google" | "facebook" | "apple" | "twitter";
+type Provider = "google" | "facebook" | "twitter";
 
 const providers: Array<{ id: Provider; label: string }> = [
   { id: "google", label: "Google" },
   { id: "facebook", label: "Facebook" },
-  { id: "apple", label: "Apple" },
   { id: "twitter", label: "X" },
 ];
 
@@ -21,9 +20,6 @@ function ProviderLogo({ provider }: { provider: Provider }) {
   }
   if (provider === "facebook") {
     return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6"><circle cx="12" cy="12" r="10" fill="#1877F2"/><path fill="#fff" d="M13.25 19v-6h2.02l.31-2.34h-2.33V9.17c0-.68.19-1.14 1.17-1.14h1.25V5.94c-.22-.03-.97-.09-1.84-.09-1.82 0-3.07 1.11-3.07 3.15v1.66H8.7V13h2.06v6h2.49Z"/></svg>;
-  }
-  if (provider === "apple") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current"><path d="M17.05 12.54c0-2.14 1.75-3.17 1.83-3.22a3.93 3.93 0 0 0-3.09-1.67c-1.3-.14-2.54.77-3.2.77-.67 0-1.7-.75-2.79-.73-1.43.02-2.75.83-3.48 2.1-1.5 2.6-.38 6.42 1.08 8.52.73 1.03 1.57 2.17 2.69 2.13 1.08-.04 1.49-.69 2.8-.69 1.31 0 1.68.69 2.82.67 1.17-.02 1.91-1.04 2.63-2.07.83-1.2 1.17-2.36 1.19-2.42-.03-.01-2.28-.87-2.48-3.39Zm-2.1-6.26c.58-.7.97-1.68.86-2.65-.84.03-1.86.56-2.46 1.26-.54.62-1 1.62-.87 2.57.94.07 1.9-.48 2.47-1.18Z"/></svg>;
   }
   return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current"><path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.84L0 2h7.6l5.24 6.92L18.9 2Zm-1.3 17.69h2.04L6.48 4.19H4.29L17.6 19.69Z"/></svg>;
 }
@@ -39,7 +35,7 @@ function SignupScreen() {
   const handleSocialSignup = async (provider: Provider) => {
     if (socialLoading) return;
     setSocialLoading(provider); setError("");
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/login` } });
     if (oauthError) { setError(oauthError.message); setSocialLoading(""); }
   };
 
