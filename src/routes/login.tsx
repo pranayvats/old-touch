@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { FormField } from "@/components/FormField";
+import { normalizeIndianPhone } from "@/lib/phone";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({ component: LoginScreen });
@@ -26,22 +27,32 @@ function LoginScreen() {
 
   const handleLogin = async () => {
     const value = identifier.trim();
-    if (!value || !password) return;
+    if (!value || loading) return;
     setLoading(true); setError(""); setNotice("");
 
-    const credentials = value.includes("@")
-      ? { email: value.toLowerCase(), password }
-      : { phone: value.replace(/\s+/g, ""), password };
-
-    const { error: authError } = await supabase.auth.signInWithPassword(credentials);
-    if (authError) {
-      const message = authError.message.toLowerCase().includes("phone")
-        ? "Mobile-number login is not enabled yet. Please use the email address you registered with."
-        : authError.message;
-      setError(message);
-      setLoading(false);
+    if (!value.includes("@")) {
+      const phone = normalizeIndianPhone(value);
+      if (!phone) {
+        setError("Enter a valid Indian mobile number, such as 98765 43210.");
+        setLoading(false);
+        return;
+      }
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone,
+        options: { shouldCreateUser: false },
+      });
+      if (otpError) {
+        setError(otpError.message.includes("not found") ? "No Old Touch account was found for this mobile number. Create an account first." : otpError.message);
+        setLoading(false);
+        return;
+      }
+      navigate({ to: "/phone-otp", search: { phone, mode: "login", name: "", email: "" } });
       return;
     }
+
+    if (!password) { setError("Enter your password."); setLoading(false); return; }
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: value.toLowerCase(), password });
+    if (authError) { setError(authError.message); setLoading(false); return; }
 
     localStorage.setItem("old-touch-logged-in", "true");
     navigate({ to: "/" });
@@ -50,7 +61,7 @@ function LoginScreen() {
   const handleForgotPassword = async () => {
     const value = identifier.trim().toLowerCase();
     if (!value.includes("@")) {
-      setError("Enter the email address linked to your Old Touch account.");
+      setError("Enter the email address linked to your Old Touch account to reset its password.");
       return;
     }
 
@@ -63,6 +74,8 @@ function LoginScreen() {
     setResetting(false);
   };
 
+  const isPhone = identifier.trim() && !identifier.includes("@");
+
   return (
     <AppShell>
       <main className="flex flex-1 flex-col p-6 pt-12">
@@ -71,12 +84,12 @@ function LoginScreen() {
           <p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p>
         </div>
         <div className="flex flex-col gap-5">
-          <FormField label="Email address or mobile number" placeholder="Enter your email or mobile number" value={identifier} onChange={setIdentifier} />
-          <FormField label="Password" type="password" placeholder="Enter your password" value={password} onChange={setPassword} />
+          <FormField label="Email address or mobile number" placeholder="98765 43210 or email" value={identifier} onChange={setIdentifier} />
+          {!isPhone && <FormField label="Password" type="password" placeholder="Enter your password" value={password} onChange={setPassword} />}
           {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
           {notice && <p className="rounded-2xl bg-primary/10 p-4 text-base font-bold text-primary">{notice}</p>}
-          <button type="button" onClick={handleLogin} disabled={loading || !identifier.trim() || !password} className="mt-3 w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Logging in…" : "Log In"}</button>
-          <button type="button" onClick={() => void handleForgotPassword()} disabled={resetting} className="py-3 text-lg font-bold text-primary disabled:opacity-50">{resetting ? "Sending…" : "Forgot password?"}</button>
+          <button type="button" onClick={() => void handleLogin()} disabled={loading || !identifier.trim() || (!isPhone && !password)} className="mt-3 w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? (isPhone ? "Sending OTP…" : "Logging in…") : isPhone ? "Send OTP" : "Log In"}</button>
+          {!isPhone && <button type="button" onClick={() => void handleForgotPassword()} disabled={resetting} className="py-3 text-lg font-bold text-primary disabled:opacity-50">{resetting ? "Sending…" : "Forgot password?"}</button>}
         </div>
         <div className="mt-auto pt-8 text-center">
           <p className="text-lg font-semibold text-muted-foreground">New to Old Touch?</p>
