@@ -1,71 +1,104 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/Card";
+import { FormField } from "@/components/FormField";
+import { supabase } from "@/lib/supabase";
 
-export const Route = createFileRoute("/community")({
-  head: () => ({
-    meta: [
-      { title: "My Community — Old Touch" },
-      {
-        name: "description",
-        content: "News and posts from people in your local community.",
-      },
-      { property: "og:title", content: "My Community — Old Touch" },
-      {
-        property: "og:description",
-        content: "News and posts from people in your local community.",
-      },
-    ],
-  }),
-  component: CommunityScreen,
-});
+export const Route = createFileRoute("/community")({ component: CommunityScreen });
 
-const posts = [
-  {
-    community: "Green Park Senior Group",
-    person: "Kamala Sharma",
-    text: "Morning walk at the park tomorrow at 6:30 am. Everyone is welcome!",
-    time: "Today, 5:10 pm",
-  },
-  {
-    community: "Green Park Senior Group",
-    person: "Rajesh Verma",
-    text: "Free health check-up camp at the community hall this Sunday, 9 am to 1 pm.",
-    time: "Today, 11:42 am",
-  },
-  {
-    community: "Sector 12 Residents",
-    person: "Meena Iyer",
-    text: "Bhajan evening at my home on Friday at 6 pm. Please bring a friend!",
-    time: "Yesterday, 7:25 pm",
-  },
-] as const;
+type Post = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  author?: { full_name: string; city: string | null } | null;
+};
 
 function CommunityScreen() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadPosts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("community_posts")
+      .select("id,user_id,content,created_at,profiles!community_posts_user_id_fkey(full_name,city)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    setPosts((data ?? []).map((row: any) => ({ ...row, author: row.profiles })));
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadPosts();
+    const channel = supabase
+      .channel("community-posts-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts" }, () => void loadPosts())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
+  const createPost = async () => {
+    const text = content.trim();
+    if (!text) return;
+    setPosting(true);
+    setError("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("Please log in again to post."); setPosting(false); return; }
+
+    const { error } = await supabase.from("community_posts").insert({ user_id: user.id, content: text });
+    if (error) setError(error.message);
+    else setContent("");
+    setPosting(false);
+  };
+
+  const deletePost = async (id: string) => {
+    const { error } = await supabase.from("community_posts").delete().eq("id", id);
+    if (error) setError(error.message);
+  };
+
   return (
     <AppShell>
-      <PageHeader title="My Community" subtitle="Green Park, New Delhi" />
+      <PageHeader title="My Community" subtitle="People and news near you" />
       <main className="flex flex-col gap-4 p-5">
-        {posts.map((post, i) => (
-          <Card key={i}>
-            <div className="flex items-center gap-2 text-base font-bold text-primary">
-              <Users className="h-5 w-5 shrink-0" />
-              <span>{post.community}</span>
+        <Card>
+          <div className="flex items-center gap-2 text-xl font-extrabold"><Plus className="h-6 w-6" /> Share with your community</div>
+          <FormField label="Your message" placeholder="What would you like to tell your community?" value={content} onChange={setContent} multiline optional />
+          <button type="button" onClick={createPost} disabled={!content.trim() || posting} className="mt-4 w-full rounded-3xl bg-primary px-6 py-4 text-xl font-extrabold text-primary-foreground disabled:opacity-50">{posting ? "Posting…" : "Post"}</button>
+        </Card>
+
+        {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
+        {loading ? <p className="p-4 text-lg font-semibold">Loading community…</p> : posts.length === 0 ? <Card><p className="text-lg font-semibold">No posts yet. Be the first to share something!</p></Card> : posts.map((post) => (
+          <Card key={post.id}>
+            <div className="flex items-center gap-2 text-base font-bold text-primary"><Users className="h-5 w-5" /><span>{post.author?.city || "Your community"}</span></div>
+            <p className="mt-2 text-lg font-black">{post.author?.full_name || "Community member"}</p>
+            <p className="mt-1 text-lg leading-relaxed">{post.content}</p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-base font-semibold text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p>
+              <DeleteOwnPost post={post} onDelete={deletePost} />
             </div>
-            <p className="mt-2 text-lg font-bold text-foreground">
-              {post.person}
-            </p>
-            <p className="mt-1 text-lg leading-relaxed text-foreground">
-              {post.text}
-            </p>
-            <p className="mt-3 text-base font-semibold text-muted-foreground">
-              {post.time}
-            </p>
           </Card>
         ))}
       </main>
     </AppShell>
   );
+}
+
+function DeleteOwnPost({ post, onDelete }: { post: Post; onDelete: (id: string) => void }) {
+  const [own, setOwn] = useState(false);
+  useEffect(() => { void supabase.auth.getUser().then(({ data }) => setOwn(data.user?.id === post.user_id)); }, [post.user_id]);
+  if (!own) return null;
+  return <button type="button" aria-label="Delete post" onClick={() => void onDelete(post.id)} className="rounded-2xl border px-4 py-2 font-bold"><Trash2 className="inline h-5 w-5" /> Delete</button>;
 }
