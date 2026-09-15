@@ -14,12 +14,12 @@ interface BigButtonProps {
 }
 
 const base =
-  "flex w-full items-center gap-4 rounded-3xl border-2 px-5 py-5 text-left transition-colors active:scale-[0.99]";
+  "flex w-full items-center gap-4 rounded-3xl border-2 px-5 py-5 text-left transition-colors active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-ring/30";
 const variants = {
   default:
-    "border-border bg-card text-foreground shadow-sm active:bg-accent",
+    "border-border bg-card text-card-foreground shadow-sm hover:bg-accent active:bg-accent",
   emergency:
-    "border-emergency bg-emergency text-emergency-foreground shadow-md active:opacity-90",
+    "border-emergency bg-emergency text-emergency-foreground shadow-md hover:brightness-105 active:opacity-90",
 };
 
 function Content({
@@ -32,13 +32,13 @@ function Content({
   return (
     <>
       <span
-        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${
           emergency
-            ? "bg-emergency-foreground/20 text-emergency-foreground"
-            : "bg-primary/10 text-primary"
+            ? "border-emergency-foreground/30 bg-emergency-foreground/15 text-emergency-foreground"
+            : "border-primary/25 bg-primary/15 text-primary"
         }`}
       >
-        <Icon className="h-8 w-8" strokeWidth={2.25} />
+        <Icon className="h-8 w-8" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <span className="min-w-0">
         <span
@@ -51,7 +51,7 @@ function Content({
         {description ? (
           <span
             className={`mt-0.5 block text-base font-semibold ${
-              emergency ? "text-emergency-foreground/85" : "text-muted-foreground"
+              emergency ? "text-emergency-foreground" : "text-muted-foreground"
             }`}
           >
             {description}
