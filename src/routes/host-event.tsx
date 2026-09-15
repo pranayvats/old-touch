@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -25,7 +25,14 @@ export const Route = createFileRoute("/host-event")({
 
 function NameEventScreen() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [name, setName] = useState("");
+
+  // This route is also the parent of /host-event/details. Render the child
+  // route in place so navigation actually changes what the user sees.
+  if (pathname === "/host-event/details") {
+    return <Outlet />;
+  }
 
   const handleNext = () => {
     const eventName = name.trim();
