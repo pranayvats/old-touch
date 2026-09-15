@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { FormField } from "@/components/FormField";
 import { supabase } from "@/lib/supabase";
@@ -10,29 +10,72 @@ function SetupScreen() {
   const navigate = useNavigate();
   const [city, setCity] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+      if (!user) { navigate({ to: "/login", replace: true }); return; }
+
+      const { data: profile } = await supabase.from("profiles").select("city").eq("id", user.id).maybeSingle();
+      if (!active) return;
+      if (profile?.city) setCity(profile.city);
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [navigate]);
+
   const finish = async () => {
-    if (!city.trim()) return;
-    setLoading(true); setError("");
+    const cleanCity = city.trim();
+    if (!cleanCity) return;
+    setSaving(true); setError("");
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { navigate({ to: "/login" }); return; }
-    const { error: profileError } = await supabase.from("profiles").upsert({ id: user.id, full_name: user.user_metadata?.full_name ?? "Old Touch member", phone: user.phone ?? null, city: city.trim() });
-    if (profileError) { setError(profileError.message); setLoading(false); return; }
+    if (!user) { navigate({ to: "/login", replace: true }); return; }
+
+    const cleanName = String(user.user_metadata?.full_name ?? "Old Touch member").trim() || "Old Touch member";
+    const metadataPhone = String(user.user_metadata?.phone ?? "").trim();
+
+    const { error: profileError } = await supabase.from("profiles").upsert({
+      id: user.id,
+      full_name: cleanName,
+      phone: metadataPhone || user.phone || null,
+      city: cleanCity,
+    });
+    if (profileError) { setError(profileError.message); setSaving(false); return; }
+
     if (emergencyContact.trim()) {
-      const parts = emergencyContact.trim().split(/\s*[,:-]\s*/);
-      const phone = parts.find((part) => /[0-9+]/.test(part)) ?? emergencyContact.trim();
-      const name = parts.find((part) => part !== phone) ?? "Emergency contact";
-      await supabase.from("emergency_contacts").insert({ user_id: user.id, name, phone });
+      const raw = emergencyContact.trim();
+      const phone = (raw.match(/\+?\d[\d\s()-]{7,}\d/)?.[0] ?? "").replace(/[^\d+]/g, "");
+      if (!phone) {
+        setError("Please enter a valid emergency contact mobile number.");
+        setSaving(false);
+        return;
+      }
+      const name = raw.replace(phone, "").replace(/[,:-]/g, " ").replace(/\s+/g, " ").trim() || "Emergency contact";
+      const { error: contactError } = await supabase.from("emergency_contacts").insert({ user_id: user.id, name, phone });
+      if (contactError) { setError(contactError.message); setSaving(false); return; }
     }
+
     localStorage.setItem("old-touch-setup-complete", "true");
-    navigate({ to: "/" });
+    localStorage.setItem("old-touch-logged-in", "true");
+    navigate({ to: "/", replace: true });
   };
+
+  if (loading) return <AppShell><main className="flex flex-1 items-center justify-center p-6"><p className="text-2xl font-bold">Loading your setup…</p></main></AppShell>;
 
   return <AppShell><main className="flex flex-1 flex-col p-6 pt-10">
     <div className="mb-8"><h1 className="text-4xl font-black">A few things first</h1><p className="mt-2 text-lg font-semibold text-muted-foreground">These help Old Touch show useful local information and make it easier to get help.</p></div>
-    <div className="flex flex-col gap-5"><FormField label="Your town or city" placeholder="e.g. New Delhi" value={city} onChange={setCity} /><FormField label="Emergency contact" placeholder="Name or mobile number" optional value={emergencyContact} onChange={setEmergencyContact} /><p className="text-base font-medium text-muted-foreground">You can add or change emergency contacts later.</p>{error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}</div>
-    <button type="button" onClick={finish} disabled={loading || !city.trim()} className="mt-auto w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Saving…" : "Finish Setup"}</button>
+    <div className="flex flex-col gap-5">
+      <FormField label="Your town or city" placeholder="e.g. New Delhi" value={city} onChange={setCity} />
+      <FormField label="Emergency contact" placeholder="e.g. Ramesh — 98765 43210" optional value={emergencyContact} onChange={setEmergencyContact} />
+      <p className="text-base font-medium text-muted-foreground">You can add or change emergency contacts later.</p>
+      {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
+    </div>
+    <button type="button" onClick={() => void finish()} disabled={saving || !city.trim()} className="mt-auto w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving…" : "Finish Setup"}</button>
   </main></AppShell>;
 }
