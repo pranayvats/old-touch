@@ -24,7 +24,10 @@ function SignupScreen() {
     const { data, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
-      options: { data: { full_name: name.trim(), phone } },
+      options: {
+        data: { full_name: name.trim(), phone },
+        emailRedirectTo: "https://old-touch.vercel.app/",
+      },
     });
     if (authError) { setError(authError.message); setLoading(false); return; }
     if (data.user && data.session) {
