@@ -19,7 +19,7 @@ function buildOverpassQuery(tag: string, { lat, lng }: Coordinates) {
     restaurant: ["node[amenity=restaurant]", "way[amenity=restaurant]", "relation[amenity=restaurant]", "node[amenity=fast_food]", "way[amenity=fast_food]"],
     community: ["node[amenity=community_centre]", "way[amenity=community_centre]", "relation[amenity=community_centre]", "node[leisure=community_centre]", "way[leisure=community_centre]", "node[amenity=social_centre]", "way[amenity=social_centre]"],
   }[tag] ?? [];
-  return `[out:json][timeout:25];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
+  return `[out:json][timeout:20];(${filters.map((filter) => `${filter}(around:7000,${lat},${lng});`).join("")});out center tags;`;
 }
 
 async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<PlaceResult[]> {
@@ -42,7 +42,8 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
         return {
           name: tags.name ?? "Unnamed place",
           address: [tags["addr:housenumber"], tags["addr:street"], tags["addr:suburb"], tags["addr:city"]].filter(Boolean).join(", ") || "Address unavailable",
-          lat: Number(point.lat), lng: Number(point.lng),
+          lat: Number(point.lat),
+          lng: Number(point.lng),
         };
       }).filter((place: PlaceResult) => {
         if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return false;
@@ -56,18 +57,37 @@ async function searchNearbyOverpass(tag: string, center: Coordinates): Promise<P
   throw lastError instanceof Error ? lastError : new Error("Could not load nearby places.");
 }
 
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  if (!navigator.geolocation) return Promise.reject(new Error("Location is not supported by this device."));
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: (value: GeolocationPosition | GeolocationPositionError) => void, value: GeolocationPosition | GeolocationPositionError) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+    };
+    const timer = window.setTimeout(() => {
+      finish(reject, new Error("Location lookup is taking too long. Check your browser's location permission and press Update."));
+    }, 10000);
+    navigator.geolocation.getCurrentPosition(
+      (position) => { window.clearTimeout(timer); finish(resolve, position); },
+      (error) => { window.clearTimeout(timer); finish(reject, error); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 9000 },
+    );
+  });
+}
+
 export function NearbyPlacesMap() {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerRefs = useRef<any[]>([]);
   const centerRef = useRef<Coordinates | null>(null);
-  const watchIdRef = useRef<number | null>(null);
   const [category, setCategory] = useState("hospital");
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState("");
-  const [locationLabel, setLocationLabel] = useState("Finding your exact location…");
+  const [locationLabel, setLocationLabel] = useState("Getting your location…");
 
   const searchNearby = async (nextCategory: string, center = centerRef.current) => {
     if (!center) return;
@@ -87,22 +107,19 @@ export function NearbyPlacesMap() {
   };
 
   const locateAndSearch = async (nextCategory = category) => {
-    if (!navigator.geolocation) { setMessage("Location is not supported by this device."); return; }
-    setLocating(true); setMessage("");
+    setLocating(true); setLoading(true); setMessage("");
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }));
+      const position = await getCurrentPosition();
       const accuracy = position.coords.accuracy;
-      if (accuracy > 500) throw new Error(`Your device only provided an approximate location (±${Math.round(accuracy)} m). Turn on precise location and try again.`);
+      if (!Number.isFinite(accuracy) || accuracy > 1000) throw new Error(`Your device only provided an approximate location (±${Math.round(accuracy)} m). Turn on precise location and try again.`);
       const center = { lat: position.coords.latitude, lng: position.coords.longitude };
       centerRef.current = center;
       setLocationLabel(`Your location (±${Math.round(accuracy)} m)`);
-      if (mapRef.current) {
-        mapRef.current.setView([center.lat, center.lng], 16);
-      }
+      if (mapRef.current) mapRef.current.setView([center.lat, center.lng], 15);
       await searchNearby(nextCategory, center);
     } catch (error) {
       setLoading(false);
-      setMessage(error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED ? "Location access is blocked. Allow location access for Old Touch and try again." : error instanceof Error ? error.message : "Could not get your location.");
+      setMessage(error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED ? "Location access is blocked. Allow location access for Old Touch and press Update." : error instanceof Error ? error.message : "Could not get your location.");
     } finally { setLocating(false); }
   };
 
@@ -113,12 +130,8 @@ export function NearbyPlacesMap() {
       mapRef.current = L.map(mapElement.current, { zoomControl: true });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(mapRef.current);
       await locateAndSearch("hospital");
-    }).catch((error: Error) => { if (!cancelled) { setLoading(false); setMessage(error.message); } });
-    return () => {
-      cancelled = true;
-      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-    };
+    }).catch((error: Error) => { if (!cancelled) { setLoading(false); setMessage(error.message || "The map could not load. Press Update to try again."); } });
+    return () => { cancelled = true; if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
   }, []);
 
   return (
@@ -136,7 +149,7 @@ export function NearbyPlacesMap() {
         ))}
       </div>
       <div ref={mapElement} className="h-[360px] w-full overflow-hidden rounded-3xl border-2 border-border" />
-      {loading && <p className="rounded-2xl bg-muted p-4 text-lg font-bold">Finding places near you…</p>}
+      {loading && <p className="rounded-2xl bg-muted p-4 text-lg font-bold">{locating ? "Getting your location…" : "Finding places near you…"}</p>}
       {message && !loading && <p className="rounded-2xl bg-muted p-4 text-lg font-bold">{message}</p>}
       <div className="space-y-3">
         {places.map((place) => (
