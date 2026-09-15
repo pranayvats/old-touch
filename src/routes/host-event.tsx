@@ -27,6 +27,16 @@ function NameEventScreen() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
 
+  const handleNext = () => {
+    const eventName = name.trim();
+    if (!eventName) return;
+
+    navigate({
+      to: "/host-event/details",
+      search: { name: eventName },
+    });
+  };
+
   return (
     <AppShell>
       <PageHeader title="Name the Event" />
@@ -43,10 +53,9 @@ function NameEventScreen() {
         </p>
         <button
           type="button"
-          onClick={() =>
-            navigate({ to: "/host-event/details", search: { name } })
-          }
-          className="mt-auto flex w-full items-center justify-center gap-3 rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground active:opacity-90"
+          onClick={handleNext}
+          disabled={!name.trim()}
+          className="mt-auto flex w-full items-center justify-center gap-3 rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground active:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Next
           <ArrowRight className="h-8 w-8" strokeWidth={2.5} />
