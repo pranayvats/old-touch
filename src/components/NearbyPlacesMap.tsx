@@ -84,7 +84,7 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
   if (!navigator.geolocation) return Promise.reject(new Error("Location is not supported by this device."));
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = (callback: (value: GeolocationPosition | GeolocationPositionError) => void, value: GeolocationPosition | GeolocationPositionError) => {
+    const finish = (callback: (value: any) => void, value: unknown) => {
       if (settled) return;
       settled = true;
       callback(value);
