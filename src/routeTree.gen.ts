@@ -21,6 +21,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as EmergencyContactRouteImport } from './routes/emergency.contact'
+import { Route as EmergencyContactsRouteImport } from './routes/emergency.contacts'
 import { Route as HostEventDetailsRouteImport } from './routes/host-event.details'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,11 @@ const EmergencyContactRoute = EmergencyContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => EmergencyRoute,
 } as any)
+const EmergencyContactsRoute = EmergencyContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => EmergencyRoute,
+} as any)
 const HostEventDetailsRoute = HostEventDetailsRouteImport.update({
   id: '/details',
   path: '/details',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/emergency/contact': typeof EmergencyContactRoute
+  '/emergency/contacts': typeof EmergencyContactsRoute
   '/host-event/details': typeof HostEventDetailsRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/emergency/contact': typeof EmergencyContactRoute
+  '/emergency/contacts': typeof EmergencyContactsRoute
   '/host-event/details': typeof HostEventDetailsRoute
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
   '/emergency/contact': typeof EmergencyContactRoute
+  '/emergency/contacts': typeof EmergencyContactsRoute
   '/host-event/details': typeof HostEventDetailsRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/signup'
     | '/emergency/contact'
+    | '/emergency/contacts'
     | '/host-event/details'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/signup'
     | '/emergency/contact'
+    | '/emergency/contacts'
     | '/host-event/details'
   id:
     | '__root__'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/signup'
     | '/emergency/contact'
+    | '/emergency/contacts'
     | '/host-event/details'
   fileRoutesById: FileRoutesById
 }
@@ -283,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmergencyContactRouteImport
       parentRoute: typeof EmergencyRoute
     }
+    '/emergency/contacts': {
+      id: '/emergency/contacts'
+      path: '/contacts'
+      fullPath: '/emergency/contacts'
+      preLoaderRoute: typeof EmergencyContactsRouteImport
+      parentRoute: typeof EmergencyRoute
+    }
     '/host-event/details': {
       id: '/host-event/details'
       path: '/details'
@@ -295,10 +314,12 @@ declare module '@tanstack/react-router' {
 
 interface EmergencyRouteChildren {
   EmergencyContactRoute: typeof EmergencyContactRoute
+  EmergencyContactsRoute: typeof EmergencyContactsRoute
 }
 
 const EmergencyRouteChildren: EmergencyRouteChildren = {
   EmergencyContactRoute: EmergencyContactRoute,
+  EmergencyContactsRoute: EmergencyContactsRoute,
 }
 
 const EmergencyRouteWithChildren = EmergencyRoute._addFileChildren(

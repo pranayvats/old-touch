@@ -16,7 +16,7 @@ import {
 export const Route = createFileRoute("/emergency/contact")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { reason?: EmergencyReason } => ({
+  ): { reason: EmergencyReason | undefined } => ({
     reason: isEmergencyReason(search["reason"]) ? search["reason"] : undefined,
   }),
   head: () => ({
