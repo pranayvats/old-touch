@@ -38,8 +38,8 @@ function SetupScreen() {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) { navigate({ to: "/login", replace: true }); return; }
 
-    const cleanName = String(user.user_metadata?.full_name ?? "Old Touch member").trim() || "Old Touch member";
-    const metadataPhone = String(user.user_metadata?.phone ?? "").trim();
+    const cleanName = String(user.user_metadata?.["full_name"] ?? "Old Touch member").trim() || "Old Touch member";
+    const metadataPhone = String(user.user_metadata?.["phone"] ?? "").trim();
 
     const { error: profileError } = await supabase.from("profiles").upsert({
       id: user.id,

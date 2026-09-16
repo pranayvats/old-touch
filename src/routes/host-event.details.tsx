@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import type { MapLocation } from "@/lib/openstreetmap";
 
 export const Route = createFileRoute("/host-event/details")({
-  validateSearch: (search: Record<string, unknown>) => ({ name: typeof search.name === "string" ? search.name : "" }),
+  validateSearch: (search: Record<string, unknown>) => ({ name: typeof search["name"] === "string" ? (search["name"] as string) : "" }),
   component: EventDetailsScreen,
 });
 

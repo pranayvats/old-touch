@@ -12,7 +12,7 @@ const providers: Array<{ id: Provider; label: string }> = [
   { id: "google", label: "Google" },
 ];
 
-function ProviderLogo({ provider }: { provider: Provider }) {
+function ProviderLogo({ provider }: { provider: Provider }): React.ReactElement | null {
   if (provider === "google") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6">
@@ -23,6 +23,7 @@ function ProviderLogo({ provider }: { provider: Provider }) {
       </svg>
     );
   }
+  return null;
 }
 
 function LoginScreen() {
