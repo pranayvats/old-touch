@@ -49,6 +49,11 @@ const options: { icon: typeof HeartPulse; label: EmergencyReason }[] = [
 
 function EmergencyScreen() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // This route is also the parent of /emergency/contact and
+  // /emergency/contacts, so render the child screen in place.
+  if (pathname !== "/emergency") return <Outlet />;
 
   return (
     <AppShell>
