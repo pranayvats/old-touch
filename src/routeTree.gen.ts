@@ -17,6 +17,7 @@ import { Route as HealthyFoodRouteImport } from './routes/healthy-food'
 import { Route as HostEventRouteImport } from './routes/host-event'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NearMeRouteImport } from './routes/near-me'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -64,6 +65,11 @@ const NearMeRoute = NearMeRouteImport.update({
   path: '/near-me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/host-event': typeof HostEventRouteWithChildren
   '/login': typeof LoginRoute
   '/near-me': typeof NearMeRoute
+  '/notifications': typeof NotificationsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/host-event': typeof HostEventRouteWithChildren
   '/login': typeof LoginRoute
   '/near-me': typeof NearMeRoute
+  '/notifications': typeof NotificationsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/host-event': typeof HostEventRouteWithChildren
   '/login': typeof LoginRoute
   '/near-me': typeof NearMeRoute
+  '/notifications': typeof NotificationsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
   '/signup': typeof SignupRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/host-event'
     | '/login'
     | '/near-me'
+    | '/notifications'
     | '/reset-password'
     | '/setup'
     | '/signup'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/host-event'
     | '/login'
     | '/near-me'
+    | '/notifications'
     | '/reset-password'
     | '/setup'
     | '/signup'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/host-event'
     | '/login'
     | '/near-me'
+    | '/notifications'
     | '/reset-password'
     | '/setup'
     | '/signup'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   HostEventRoute: typeof HostEventRouteWithChildren
   LoginRoute: typeof LoginRoute
   NearMeRoute: typeof NearMeRoute
+  NotificationsRoute: typeof NotificationsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SetupRoute: typeof SetupRoute
   SignupRoute: typeof SignupRoute
@@ -265,6 +278,13 @@ declare module '@tanstack/react-router' {
       path: '/near-me'
       fullPath: '/near-me'
       preLoaderRoute: typeof NearMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -347,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   HostEventRoute: HostEventRouteWithChildren,
   LoginRoute: LoginRoute,
   NearMeRoute: NearMeRoute,
+  NotificationsRoute: NotificationsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SetupRoute: SetupRoute,
   SignupRoute: SignupRoute,
