@@ -14,10 +14,10 @@ import {
 } from "@/lib/emergency";
 
 export const Route = createFileRoute("/emergency/contact")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    reason: isEmergencyReason(search.reason)
-      ? (search.reason as EmergencyReason)
-      : undefined,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { reason?: EmergencyReason } => ({
+    reason: isEmergencyReason(search["reason"]) ? search["reason"] : undefined,
   }),
   head: () => ({
     meta: [
