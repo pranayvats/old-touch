@@ -46,7 +46,7 @@ function SignupScreen() {
   };
 
   return <AppShell><main className="flex flex-1 flex-col p-6 pt-10">
-    <div className="mb-8 text-center"><h1 className="text-4xl font-black">Join Old Touch</h1><p className="mt-2 text-lg font-semibold text-muted-foreground">Use an account you already have.</p></div>
+    <div className="mb-8 text-center"><h1 className="text-4xl font-black">Join Old Touch</h1></div>
     <div className="mb-2 flex items-center justify-center gap-4" aria-label="Sign up with Google">
       {providers.map((item) => <button key={item.id} type="button" aria-label={`Sign up with ${item.label}`} title={`Sign up with ${item.label}`} onClick={() => void handleSocialSignup(item.id)} disabled={Boolean(socialLoading)} className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55">{socialLoading === item.id ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Loading"/> : <ProviderLogo provider={item.id}/>}</button>)}
     </div>
@@ -58,6 +58,6 @@ function SignupScreen() {
       {error && <p className="rounded-2xl bg-destructive/10 p-4 text-base font-bold text-destructive">{error}</p>}
       <button type="button" onClick={() => void handleEmailSignup()} disabled={loading || !name.trim() || !email.trim() || !password} className="w-full rounded-3xl bg-primary px-6 py-5 text-2xl font-extrabold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Creating…" : "Create with Email"}</button>
     </div>
-    <div className="mt-auto pt-8 text-center"><p className="text-lg font-semibold text-muted-foreground">Already have an account?</p><Link to="/login" className="mt-2 block rounded-3xl border-2 border-primary px-6 py-4 text-xl font-extrabold text-primary">Log In</Link></div>
+    <div className="mt-auto pt-8 text-center"><Link to="/login" className="mt-2 block rounded-3xl border-2 border-primary px-6 py-4 text-xl font-extrabold text-primary">Log In</Link></div>
   </main></AppShell>;
 }
