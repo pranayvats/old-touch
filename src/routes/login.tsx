@@ -6,12 +6,10 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({ component: LoginScreen });
 
-type Provider = "google" | "facebook" | "twitter";
+type Provider = "google";
 
 const providers: Array<{ id: Provider; label: string }> = [
   { id: "google", label: "Google" },
-  { id: "facebook", label: "Facebook" },
-  { id: "twitter", label: "X" },
 ];
 
 function ProviderLogo({ provider }: { provider: Provider }) {
@@ -25,10 +23,6 @@ function ProviderLogo({ provider }: { provider: Provider }) {
       </svg>
     );
   }
-  if (provider === "facebook") {
-    return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6"><circle cx="12" cy="12" r="10" fill="#1877F2" /><path fill="#fff" d="M13.25 19v-6h2.02l.31-2.34h-2.33V9.17c0-.68.19-1.14 1.17-1.14h1.25V5.94c-.22-.03-.97-.09-1.84-.09-1.82 0-3.07 1.11-3.07 3.15v1.66H8.7V13h2.06v6h2.49Z" /></svg>;
-  }
-  return <svg viewBox="0 0 24 24" aria-hidden="true" className="h-6 w-6 fill-current"><path d="M18.9 2h3.68l-8.04 9.19L24 22h-7.41l-5.8-7.59L4.15 22H.47l8.6-9.84L0 2h7.6l5.24 6.92L18.9 2Zm-1.3 17.69h2.04L6.48 4.19H4.29L17.6 19.69Z" /></svg>;
 }
 
 function LoginScreen() {
@@ -66,7 +60,7 @@ function LoginScreen() {
   const handleLogin = async () => {
     const value = identifier.trim().toLowerCase();
     if (!value || loading) return;
-    if (!value.includes("@")) { setError("Please use one of the sign-in options above, or enter an email address."); return; }
+    if (!value.includes("@")) { setError("Please use Google sign-in above, or enter an email address."); return; }
     if (!password) { setError("Enter your password."); return; }
     setLoading(true); setError(""); setNotice("");
     const { error: authError } = await supabase.auth.signInWithPassword({ email: value, password });
@@ -89,7 +83,7 @@ function LoginScreen() {
     <AppShell>
       <main className="flex flex-1 flex-col p-6 pt-10">
         <div className="mb-8 text-center"><h1 className="text-5xl font-black tracking-tight">Welcome to Old Touch</h1><p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p></div>
-        <div className="mb-2 flex items-center justify-center gap-4" aria-label="Sign in with a social account">
+        <div className="mb-2 flex items-center justify-center gap-4" aria-label="Sign in with Google">
           {providers.map((item) => <button key={item.id} type="button" aria-label={`Continue with ${item.label}`} title={`Continue with ${item.label}`} onClick={() => void handleSocialLogin(item.id)} disabled={Boolean(socialLoading)} className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55">{socialLoading === item.id ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Loading" /> : <ProviderLogo provider={item.id} />}</button>)}
         </div>
         <div className="my-7 flex items-center gap-3 text-muted-foreground"><div className="h-px flex-1 bg-border" /><span className="text-base font-bold">OR EMAIL</span><div className="h-px flex-1 bg-border" /></div>
