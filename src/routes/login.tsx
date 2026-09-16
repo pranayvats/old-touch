@@ -82,7 +82,7 @@ function LoginScreen() {
   return (
     <AppShell>
       <main className="flex flex-1 flex-col p-6 pt-10">
-        <div className="mb-8 text-center"><h1 className="text-5xl font-black tracking-tight">Welcome to Old Touch</h1><p className="mt-3 text-xl font-semibold text-muted-foreground">Stay connected. Stay safe.</p></div>
+        <div className="mb-8 text-center"><h1 className="text-5xl font-black tracking-tight">Old Touch</h1></div>
         <div className="mb-2 flex items-center justify-center gap-4" aria-label="Sign in with Google">
           {providers.map((item) => <button key={item.id} type="button" aria-label={`Continue with ${item.label}`} title={`Continue with ${item.label}`} onClick={() => void handleSocialLogin(item.id)} disabled={Boolean(socialLoading)} className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-accent hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55">{socialLoading === item.id ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Loading" /> : <ProviderLogo provider={item.id} />}</button>)}
         </div>
