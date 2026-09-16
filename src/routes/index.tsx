@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarPlus, CarTaxiFront, LogOut, Salad, Users, MapPin } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CarTaxiFront, Bell, UserRound, Salad, Users, MapPin } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BigButton } from "@/components/BigButton";
 import { supabase } from "@/lib/supabase";
@@ -40,5 +39,21 @@ function HomeScreen() {
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => { setLoggingOut(true); await supabase.auth.signOut(); localStorage.removeItem("old-touch-logged-in"); localStorage.removeItem("old-touch-setup-complete"); navigate({ to: "/login", replace: true }); };
-  return <AppShell><header className="flex items-start justify-between px-5 pb-2 pt-8"><div><h1 className="text-4xl font-black tracking-tight text-foreground">Old Touch</h1><p className="mt-1 text-lg font-semibold text-muted-foreground">Namaste! What would you like to do?</p></div><button type="button" onClick={() => void handleLogout()} disabled={loggingOut} aria-label="Log out" title="Log out" className="mt-1 flex min-h-12 min-w-12 items-center justify-center rounded-2xl border-2 border-border bg-card text-foreground hover:bg-accent disabled:opacity-50"><LogOut className="h-6 w-6" /></button></header><main className="flex flex-col gap-4 p-5"><BigButton variant="emergency" icon={AlertTriangle} label="EMERGENCY" description="Get help quickly" to="/emergency" /><BigButton icon={CalendarPlus} label="HOST AN EVENT" description="Plan a get-together" to="/host-event" /><BigButton icon={Users} label="MY COMMUNITY" description="News from people near you" to="/community" /><BigButton icon={MapPin} label="NEAR ME" description="Hospitals, pharmacies & more" to="/near-me" /><BigButton icon={Salad} label="HEALTHY FOOD" description="Good restaurants nearby" to="/healthy-food" /><BigButton icon={CarTaxiFront} label="BOOK A CAB" description="Go anywhere comfortably" to="/book-a-cab" /></main></AppShell>;
+  return <AppShell>
+    <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-8">
+      <div><h1 className="text-4xl font-black tracking-tight text-foreground">Old Touch</h1><p className="mt-1 text-lg font-semibold text-muted-foreground">Namaste! What would you like to do?</p></div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => navigate({ to: "/notifications" })} aria-label="Notifications" title="Notifications" className="mt-1 flex min-h-12 min-w-12 items-center justify-center rounded-2xl border-2 border-border bg-card text-foreground hover:bg-accent"><Bell className="h-6 w-6" /></button>
+        <button type="button" onClick={() => navigate({ to: "/profile" })} aria-label="Profile and settings" title="Profile and settings" className="mt-1 flex min-h-12 min-w-12 items-center justify-center rounded-2xl border-2 border-border bg-card text-foreground hover:bg-accent"><UserRound className="h-6 w-6" /></button>
+      </div>
+    </header>
+    <main className="flex flex-col gap-4 p-5">
+      <BigButton variant="emergency" icon={AlertTriangle} label="EMERGENCY" description="Get help quickly" to="/emergency" />
+      <BigButton icon={CalendarPlus} label="HOST AN EVENT" description="Plan a get-together" to="/host-event" />
+      <BigButton icon={Users} label="MY COMMUNITY" description="News from people near you" to="/community" />
+      <BigButton icon={MapPin} label="NEAR ME" description="Hospitals, pharmacies & more" to="/near-me" />
+      <BigButton icon={Salad} label="HEALTHY FOOD" description="Good restaurants nearby" to="/healthy-food" />
+      <BigButton icon={CarTaxiFront} label="BOOK A CAB" description="Go anywhere comfortably" to="/book-a-cab" />
+    </main>
+  </AppShell>;
 }
