@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AlertTriangle, CalendarPlus, CarTaxiFront, Bell, UserRound, Salad, Users, MapPin } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BigButton } from "@/components/BigButton";
@@ -37,8 +38,6 @@ function HomeGate() {
 
 function HomeScreen() {
   const navigate = useNavigate();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const handleLogout = async () => { setLoggingOut(true); await supabase.auth.signOut(); localStorage.removeItem("old-touch-logged-in"); localStorage.removeItem("old-touch-setup-complete"); navigate({ to: "/login", replace: true }); };
   return <AppShell>
     <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-8">
       <div><h1 className="text-4xl font-black tracking-tight text-foreground">Old Touch</h1><p className="mt-1 text-lg font-semibold text-muted-foreground">Namaste! What would you like to do?</p></div>
