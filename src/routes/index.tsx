@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarPlus, CarTaxiFront, Bell, UserRound, Salad, Users, MapPin } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CarTaxiFront, Bell, UserRound, Salad, Users, MapPin, MessageCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { BigButton } from "@/components/BigButton";
 import { supabase } from "@/lib/supabase";
@@ -50,6 +50,7 @@ function HomeScreen() {
       <BigButton variant="emergency" icon={AlertTriangle} label="EMERGENCY" description="Get help quickly" to="/emergency" />
       <BigButton icon={CalendarPlus} label="HOST AN EVENT" description="Plan a get-together" to="/host-event" />
       <BigButton icon={Users} label="MY COMMUNITY" description="News from people near you" to="/community" />
+      <BigButton icon={MessageCircle} label="SOCIAL" description="Connect with friends and people you know" to="/social" />
       <BigButton icon={MapPin} label="NEAR ME" description="Hospitals, pharmacies & more" to="/near-me" />
       <BigButton icon={Salad} label="HEALTHY FOOD" description="Good restaurants nearby" to="/healthy-food" />
       <BigButton icon={CarTaxiFront} label="BOOK A CAB" description="Go anywhere comfortably" to="/book-a-cab" />
