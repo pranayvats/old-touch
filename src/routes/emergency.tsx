@@ -1,4 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   HeartPulse,
   PersonStanding,
